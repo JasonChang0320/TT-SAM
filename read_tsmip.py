@@ -1,5 +1,6 @@
 import obspy
 import pandas as pd
+import re
 
 
 def read_tsmip(txt):
@@ -26,29 +27,51 @@ def read_tsmip(txt):
 
     return stream
 
-def read_header(header):
+def classify_event_trace(afile_path,afile_name,trace_folder):
+    events=[]
+    traces=[]
+    with open(afile_path) as f:
+        for i, line in enumerate(f):
+            if re.match(f"{afile_name[0:4]}.*",line):
+                if i!=0:
+                    traces.append(tmp_trace)
+                # event_line_index.append(i)
+                events.append(line)
+                tmp_trace=[]
+            else:
+                if line[46:59].strip() in trace_folder:
+                    tmp_trace.append(line)
+        traces.append(tmp_trace) #remember to add the last event's traces
+    return events,traces
+
+def read_header(header,EQ_ID=None):
     if int(header[1:2]) == 9:
         header = header.replace("9", "199", 1)
     header_info = {
-        "year": int(header[1:5]),
-        "month": int(header[5:7]),
-        "day": int(header[7:9]),
-        "hour": int(header[9:11]),
-        "minute": int(header[11:13]),
-        "second": float(header[13:19]),
-        "lat": float(header[19:21]),
-        "lat_minute": float(header[21:26]),
-        "lon": int(header[26:29]),
-        "lon_minute": float(header[29:34]),
-        "depth": float(header[34:40]),
-        "magnitude": float(header[40:44]),
-        "nsta": header[44:46].replace(" ", ""),
-        "Pfilename": header[46:58].replace(" ", ""),
-        "newNoPick": header[60:63].replace(" ", ""),
+        "year": int(header[0:4]),
+        "month": int(header[4:6]),
+        "day": int(header[6:8]),
+        "hour": int(header[8:10]),
+        "minute": int(header[10:12]),
+        "second": float(header[12:18]),
+        "lat": float(header[18:20]),
+        "lat_minute": float(header[20:25]),
+        "lon": int(header[25:28]),
+        "lon_minute": float(header[28:33]),
+        "depth": float(header[33:39]),
+        "magnitude": float(header[39:43]),
+        "nsta": header[43:45].replace(" ", ""),
+        "nearest_sta_dist (km)":header[45:50].replace(" ","")
+        # "Pfilename": header[46:58].replace(" ", ""),
+        # "newNoPick": header[60:63].replace(" ", ""),
     }
+    if EQ_ID:
+        EQID_dict={"EQ_ID":EQ_ID}
+        EQID_dict.update(header_info)
+        return EQID_dict
     return header_info
 
-def read_lines(lines):
+def read_lines(lines,EQ_ID=None):
     trace = []
     for line in lines:
         line = line.strip("\n")
@@ -56,25 +79,22 @@ def read_lines(lines):
             line = line + "   0.000"
         try:
             line_info = {
-                "code": str(line[1:7]).replace(" ", ""),
-                "epdis": float(line[7:13]),
-                "az": int(line[13:17]),
-                "phase": str(line[21:22]).replace(" ", ""),
-                "ptime": float(line[23:30]),
-                "pwt": int(line[30:32]),
-                "stime": float(line[33:40]),
-                "swt": int(line[40:42]),
-                "lat": float(line[42:49]),
-                "lon": float(line[49:57]),
-                "gain": float(line[57:62]),
-                "convm": str(line[62:63]).replace(" ", ""),
-                "accf": str(line[63:75]).replace(" ", ""),
-                "durt": float(line[75:79]),
-                "cherr": int(line[80:83]),
-                "timel": str(line[83:84]).replace(" ", ""),
-                "rtcard": str(line[84:101]).replace(" ", ""),
-                "ctime": str(line[101:109]).replace(" ", ""),
+                "station_name": str(line[1:7]).replace(" ", ""),
+                "intensity": str(line[8:9]),
+                "epdis (km)": float(line[11:17]),
+                "pga_z": float(line[18:25]),
+                "pga_ns": float(line[25:32]),
+                "pga_ew": float(line[32:39]),
+                "record_time (sec)": float(line[39:45]),
+                "file_name": str(line[46:58]),
+                "instrument_code": str(line[58:63]),
+                "start_time": int(line[64:78]),
+                "sta_angle": int(line[81:84])
             }
+            if EQ_ID:
+                EQID_dict={"EQ_ID":EQ_ID}
+                EQID_dict.update(line_info)
+                line_info=EQID_dict
         except ValueError:
             print(line)
             continue
