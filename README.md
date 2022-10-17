@@ -1,3 +1,2 @@
 # TEAM_Taiwan
-Deep Learning EEW system
-data from TSMIP
+Deep Learning EEW system, data from TSMIP
