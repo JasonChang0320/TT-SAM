@@ -6,8 +6,9 @@ import scipy.signal as ss
 
 year=2012
 month="01"
-# file_name="01801600.CVA.txt"
-file_name="D3700402.SMT.txt"
+file_name="01801600.CVA.txt" #normal case
+file_name="D3700402.SMT.txt" #double event example big bring small
+file_name="11801000.CVA.txt" #double event example small bring big
 path=f"data/waveform/{year}/{month}"
 
 trace=read_tsmip(f"{path}/{file_name}")
