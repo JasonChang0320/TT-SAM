@@ -6,7 +6,7 @@ import scipy.signal as ss
 
 year=2012
 month="01"
-file_name="01801600.CVA.txt"
+# file_name="01801600.CVA.txt"
 file_name="D3700402.SMT.txt"
 path=f"data/waveform/{year}/{month}"
 
