@@ -1,7 +1,8 @@
 import obspy
 import pandas as pd
 import re
-
+from obspy.signal.trigger import ar_pick
+import matplotlib.pyplot as plt
 
 def read_tsmip(txt):
     data = pd.read_fwf(txt, delim_whitespace=True, skiprows=11).to_numpy()
@@ -149,3 +150,51 @@ def read_afile(afile):
 
     event.magnitudes = header_info["magnitude"]
     return event
+
+def trace_pick_plot(trace,file_name,eq_num=None,output_path=None): #trace load by "read_tsmip"
+    sampling_rate=trace[0].stats.sampling_rate
+    error_file={"year":[],"month":[],"file":[],"reason":[]}
+    year=trace[0].stats.starttime.year
+    month=trace[0].stats.starttime.month
+    file_name=file_name
+    try:
+        p_pick,s_pick=ar_pick(trace[0],trace[1],trace[2],
+                            samp_rate=sampling_rate,
+                            f1=1, #Frequency of the lower bandpass window
+                            f2=20, #Frequency of the upper bandpass window
+                            lta_p=1, #Length of LTA for the P arrival in seconds
+                            sta_p=0.1, #Length of STA for the P arrival in seconds
+                            lta_s=4.0, #Length of LTA for the S arrival in seconds
+                            sta_s=1.0, #Length of STA for the P arrival in seconds
+                            m_p=2, #Number of AR coefficients for the P arrival
+                            m_s=8, #Number of AR coefficients for the S arrival
+                            l_p=0.1,
+                            l_s=0.2,
+                            s_pick=True)
+    except Exception as reason:
+        print(file_name,f"year:{year},month:{month}, {reason}")
+        error_file["year"].append(year)
+        error_file["month"].append(month)
+        error_file["file"].append(file_name)
+        error_file["reason"].append(reason)
+        return error_file
+    fig,ax=plt.subplots(3,1)
+
+    ax[0].set_title(f"station: {trace[0].stats.station}, start time: {trace[0].stats.starttime}")
+
+    for component in range(len(trace)):
+        ax[component].plot(trace[component],"k")
+        ymin,ymax=ax[component].get_ylim()
+        ax[component].vlines(p_pick*sampling_rate,ymin,ymax,"r",label="P pick")
+        ax[component].vlines(s_pick*sampling_rate,ymin,ymax,"g",label="S pick")
+    ax[1].set_ylabel("acc. (gal)")
+    ax[2].set_xlabel(f"time unit ({sampling_rate} Hz)")
+    if eq_num:
+        ax[1].set_title(f"eqrthquake_number: {eq_num}")
+        fig.tight_layout()
+    ax[0].legend()
+    if output_path:
+            fig.savefig(f"{output_path}/{file_name}.png")
+            plt.close()
+            return
+    return p_pick,s_pick,fig
