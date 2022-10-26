@@ -3,6 +3,7 @@ import pandas as pd
 import re
 from obspy.signal.trigger import ar_pick
 import matplotlib.pyplot as plt
+import numpy as np
 
 def read_tsmip(txt):
     data = pd.read_fwf(txt, delim_whitespace=True, skiprows=11).to_numpy()
@@ -198,3 +199,30 @@ def trace_pick_plot(trace,file_name,eq_num=None,output_path=None): #trace load b
             plt.close()
             return
     return p_pick,s_pick,fig
+
+def get_peak_value(stream, thresholds=None):
+    data = [tr.data for tr in stream]
+    data = np.array(data)
+    vector = np.linalg.norm(data, axis=0)
+
+    peak = max(vector)
+    peak_time=np.argmax(vector,axis=0)
+    peak = np.log10(peak / 100)
+
+    exceed_times = np.zeros(5)
+    if thresholds is not None:
+        for i, threshold in enumerate(thresholds):
+            try:
+                exceed_times[i] = next(
+                    x for x, val in enumerate(vector) if val > threshold
+                )
+            except Exception as err:
+                print(err)
+
+    return peak, peak_time
+
+def get_integrated_stream(stream):
+    stream_vel = stream.copy()
+    stream_vel.filter("bandpass", freqmin=0.075, freqmax=10)
+    stream_vel.integrate()
+    return stream_vel
