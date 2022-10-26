@@ -111,7 +111,7 @@ for i in range(len(cant_picking_file)):
     trace_pick_plot(trace,file_name,eq_num=eq_num,output_path="data/waveform/double event picking")
 
 
-####### data cleaning: 2022 7-9 events, double events #####
+####### data cleaning: 2022 7-9 events (no waveform file), double events, others no waveform file#####
 #event
 no_broken_event_catalog=pd.read_csv(f"{Afile_path}/2012-2020 catalog.csv")
 
@@ -123,7 +123,7 @@ no_file_filter=(no_broken_event_catalog["EQ_ID"].isin(no_file_event.EQ_ID))
 new_event_catalog=no_broken_event_catalog[~no_file_filter]
 # new_event_catalog.to_csv(f"{Afile_path}/2012-2020 catalog (no 2020_7-9).csv",index=False)
 
-#trace
+#trace double event
 traces_catalog=pd.read_csv(f"{Afile_path}/2012-2020 traces no broken data.csv")
 catalog=pd.read_csv(f"{Afile_path}/2012-2020 catalog (no 2020_7-9).csv")
 traces_catalog_merge=pd.merge(catalog[["EQ_ID","year","month","day","hour","minute","second"]],traces_catalog
@@ -131,5 +131,5 @@ traces_catalog_merge=pd.merge(catalog[["EQ_ID","year","month","day","hour","minu
 
 double_event=pd.read_csv(f"{Afile_path}/2012-2020 double traces.csv")
 
-final_traces_catalog=pd.concat([traces_catalog_merge,double_event]).drop_duplicates(keep=False)
+final_traces_catalog=pd.concat([traces_catalog_merge,double_event,double_event]).drop_duplicates(keep=False)
 # final_traces_catalog.to_csv(f"{Afile_path}/2012-2020 traces (no 2020_7-9, broken data, double event).csv",index=False)
