@@ -66,6 +66,7 @@ error_file_df["reason"]=error_file_df["reason"].astype(str)
 
 #picking again
 traces=pd.read_csv(f"{Afile_path}/2012-2020 traces with picking and label.csv")
+error_file_df=pd.read_csv(f"{Afile_path}/2012-2020 error in picking and label.csv")
 traces['file_name'] = traces['file_name'].str.strip()
 pick_again_filter=error_file_df["reason"].str.contains(r'^exception')
 
@@ -115,8 +116,27 @@ others_err_filter=error_file_df["reason"].str.contains(r'^\[Errno 2\]')
 others_err_df=error_file_df[(~others_err_filter) & (~pick_again_filter)]
 
 #drop pga NaN value
-traces.dropna()
+traces.dropna(inplace=True)
 # traces.to_csv(f"{Afile_path}/2012-2020 traces with picking and label.csv",index=False)
+
+#drop start_time not correct
+for i in traces.index:
+    try:
+        pd.to_datetime(traces['start_time'][i], format='%Y%m%d%H%M%S')
+    except:
+        print(i,traces['start_time'][i])
+        traces.drop([i],inplace=True)
+# traces.to_csv(f"{Afile_path}/2012-2020 traces with picking and label.csv",index=False)
+
+#drop traces corresponds to wrong event:
+for i in traces.index:
+    trace_start_time=int(str(traces["start_time"][i])[-6:-4])*60*60+\
+                    int(str(traces["start_time"][i])[-4:-2])*60+\
+                    int(str(traces["start_time"][i])[-2:])
+    event_time=traces["hour"][i]*60*60+traces["minute"][i]*60+traces["second"][i]
+    if abs(trace_start_time-event_time)> 5*60: #threshold 5 mins
+        traces.drop([i],inplace=True)
+traces.to_csv(f"{Afile_path}/2012-2020 traces with picking and label.csv",index=False)
 
 #drop event don't have at least one trace
 catalog=pd.read_csv(f"{Afile_path}/2012-2020 catalog (no 2020_7-9).csv")
