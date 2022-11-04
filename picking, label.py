@@ -61,12 +61,12 @@ for trace_index in tqdm(traces.index):
 
 error_file_df=pd.DataFrame(error_file)
 error_file_df["reason"]=error_file_df["reason"].astype(str)
-# traces.to_csv(f"{Afile_path}/2012-2020 traces with picking and label.csv",index=False)
-# error_file_df.to_csv(f"{Afile_path}/2012-2020 error in picking and label.csv",index=False)
+traces.to_csv(f"{Afile_path}/2012-2020 traces with picking and label_new.csv",index=False)
+error_file_df.to_csv(f"{Afile_path}/2012-2020 error in picking and label_new.csv",index=False)
 
 #picking again
-traces=pd.read_csv(f"{Afile_path}/2012-2020 traces with picking and label.csv")
-error_file_df=pd.read_csv(f"{Afile_path}/2012-2020 error in picking and label.csv")
+traces=pd.read_csv(f"{Afile_path}/2012-2020 traces with picking and label_new.csv")
+error_file_df=pd.read_csv(f"{Afile_path}/2012-2020 error in picking and label_new.csv")
 traces['file_name'] = traces['file_name'].str.strip()
 pick_again_filter=error_file_df["reason"].str.contains(r'^exception')
 
@@ -126,7 +126,7 @@ for i in traces.index:
     except:
         print(i,traces['start_time'][i])
         traces.drop([i],inplace=True)
-# traces.to_csv(f"{Afile_path}/2012-2020 traces with picking and label.csv",index=False)
+traces.to_csv(f"{Afile_path}/2012-2020 traces with picking and label.csv",index=False)
 
 #drop traces corresponds to wrong event:
 for i in traces.index:
@@ -144,4 +144,4 @@ catalog=pd.read_csv(f"{Afile_path}/2012-2020 catalog (no 2020_7-9).csv")
 check_filter=catalog["EQ_ID"].isin(traces["EQ_ID"])
 
 catalog.drop(catalog[~check_filter].index,inplace=True)
-# catalog.to_csv(f"{Afile_path}/final catalog.csv",index=False)
+catalog.to_csv(f"{Afile_path}/final catalog.csv",index=False)
