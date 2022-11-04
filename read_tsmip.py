@@ -6,7 +6,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 def read_tsmip(txt):
-    data = pd.read_fwf(txt, delim_whitespace=True, skiprows=11).to_numpy()
+    # data = pd.read_fwf(txt, delim_whitespace=True, skiprows=10).to_numpy()
+    data=pd.read_csv(txt,sep='\s+',skiprows=11,header=None).to_numpy()
 
     with open(txt, "r") as f:
         header = f.readlines()[:11]
@@ -226,3 +227,128 @@ def get_integrated_stream(stream):
     stream_vel.filter("bandpass", freqmin=0.075, freqmax=10)
     stream_vel.integrate()
     return stream_vel
+
+def cut_traces(traces,eq_id,before_p_sec=5,trace_length_sec=30): #traces is dataframe
+    traces_info={"traces":[],"p_picks":[],"start_time":[],
+                    "pga":[],"pgv":[],"pga_time":[],"pgv_time":[]}
+    traces_filter=(traces["EQ_ID"]==eq_id)
+    tmp_traces=traces[traces_filter]
+
+    sorted_indices = (tmp_traces["start_time"] + tmp_traces["p_picks (sec)"])\
+                        .sort_values().index
+    tmp_traces=tmp_traces.loc[sorted_indices, :].reset_index(drop=True)
+
+    year=tmp_traces["year"][0]
+    month=tmp_traces["month"][0]
+    path=f"data/waveform/{year}/{month}"
+    file_name=tmp_traces["file_name"][0]
+
+    if len(str(month))<2:
+        month="0"+str(month)
+    path=f"data/waveform/{year}/{month}"
+    file_name=file_name.strip()
+    stream=read_tsmip(f"{path}/{file_name}.txt")
+    sampling_rate=stream[0].stats["sampling_rate"]
+    trace=np.transpose(np.array(stream))/100 #cm/s^2 to m/s^2
+
+    trace_length_point=int(trace_length_sec*sampling_rate)
+    first_start_cut_point=int((np.round(tmp_traces["p_picks (sec)"][0].total_seconds(),2)-before_p_sec)*sampling_rate)
+    if first_start_cut_point<0:
+        first_start_cut_point=0
+    if first_start_cut_point+trace_length_point>len(trace): #zero padding
+        init_trace=trace[first_start_cut_point:,:]
+        init_trace=np.pad(init_trace,((0,trace_length_point-len(init_trace)),(0,0)),"constant")
+    else:
+        init_trace=trace[first_start_cut_point:first_start_cut_point+trace_length_point,:]
+        if len(init_trace)<trace_length_point:
+            init_trace=np.pad(init_trace,((0,trace_length_point-len(init_trace)),(0,0)),"constant")
+
+    p_picks_point=int(np.round(tmp_traces["p_picks (sec)"][0].total_seconds()*sampling_rate,0)-first_start_cut_point)
+    pga_time=int(tmp_traces["pga_time"][0]-first_start_cut_point)
+    pgv_time=int(tmp_traces["pgv_time"][0]-first_start_cut_point)
+    start_cutting_time=tmp_traces["start_time"][0]+pd.to_timedelta(first_start_cut_point/sampling_rate,unit="sec")
+
+    traces_info["traces"].append(init_trace)
+    traces_info["p_picks"].append(p_picks_point)
+    traces_info["pga"].append(tmp_traces["pga"][0])
+    traces_info["pgv"].append(tmp_traces["pgv"][0])
+    traces_info["pga_time"].append(pga_time)
+    traces_info["pgv_time"].append(pgv_time)
+    traces_info["start_time"].append(str(start_cutting_time))
+
+    if len(tmp_traces)>1:
+        # print("more than  1 traces")
+        for i in range(1,len(tmp_traces)):
+
+            year=tmp_traces["year"][i]
+            month=tmp_traces["month"][i]
+            path=f"data/waveform/{year}/{month}"
+            file_name=tmp_traces["file_name"][i]
+
+            if len(str(month))<2:
+                month="0"+str(month)
+            path=f"data/waveform/{year}/{month}"
+            file_name=file_name.strip()
+            stream=read_tsmip(f"{path}/{file_name}.txt")
+            sampling_rate=stream[0].stats["sampling_rate"]
+            trace=np.transpose(np.array(stream))/100 #cm/s^2 to m/s^2
+            window_cut_time=(tmp_traces["start_time"][0]-tmp_traces["start_time"][i]).total_seconds()+\
+                            (first_start_cut_point/sampling_rate)
+            start_cut_point=int(window_cut_time*sampling_rate)
+            if window_cut_time<0:
+                # print("pad at the beginning")
+                end_cut_time=trace_length_point+start_cut_point
+                if end_cut_time<=0:
+                    cutting_trace=np.zeros([trace_length_point,3])
+                else:
+                    cutting_trace=trace[:end_cut_time,:]
+                    cutting_trace=np.pad(cutting_trace,((abs(start_cut_point),0),(0,0)),"constant")
+            else:
+                # print("no pad")
+                cutting_trace=trace[start_cut_point:start_cut_point+trace_length_point,:]
+                if len(cutting_trace)<trace_length_point: #waveform too short, padding
+                    cutting_trace=np.pad(cutting_trace,((0,trace_length_point-len(cutting_trace)),(0,0)),"constant")
+            p_picks_point=int(np.round(tmp_traces["p_picks (sec)"][i].total_seconds()*sampling_rate,0)-start_cut_point)
+            pga_time=int(tmp_traces["pga_time"][i]-start_cut_point)
+            pgv_time=int(tmp_traces["pgv_time"][i]-start_cut_point)
+
+            traces_info["traces"].append(cutting_trace)
+            traces_info["p_picks"].append(p_picks_point)
+            traces_info["pga"].append(tmp_traces["pga"][i])
+            traces_info["pgv"].append(tmp_traces["pgv"][i])
+            traces_info["pga_time"].append(pga_time)
+            traces_info["pgv_time"].append(pgv_time)
+            traces_info["start_time"].append(str(start_cutting_time))
+    return tmp_traces,traces_info
+
+def plot_cutting_event(traces_catalog,traces_info,subplot_max_num=25,trace_length_sec=30,sampling_rate=200,close_fig=False):
+    eq_id=traces_catalog["EQ_ID"][0]
+    trace_length_point=trace_length_sec*sampling_rate
+    if len(traces_catalog)>1:
+        if len(traces_catalog)>subplot_max_num:
+            fig,ax=plt.subplots(subplot_max_num,1,figsize=(14,7))
+        else:
+            fig,ax=plt.subplots(len(traces_catalog),1,figsize=(14,7))
+        ax[0].plot(traces_info["traces"][0])
+        ymin,ymax=ax[0].get_ylim()
+        ax[0].vlines(traces_info["p_picks"][0],ymin,ymax,"r")
+        ax[0].set_title(f"EQ ID: {eq_id}",fontsize=20)
+        ax[0].set_yticks([])
+
+    else:
+        fig,ax=plt.subplots(figsize=(14,7))
+        ax.plot(traces_info["traces"][0])
+        ymin,ymax=ax.get_ylim()
+        ax.vlines(traces_info["p_picks"][0],ymin,ymax,"r")
+        ax.set_title(f"EQ ID: {eq_id}",fontsize=20)
+    for i in range(1,len(traces_catalog)):
+        if i>=subplot_max_num:
+            continue
+        ax[i].plot(traces_info["traces"][i])
+        ax[i].set_yticks([])
+        ymin,ymax=ax[i].get_ylim()
+        if traces_info["p_picks"][i]<trace_length_point:
+            ax[i].vlines(traces_info["p_picks"][i],ymin,ymax,"r")
+    if close_fig:
+        plt.close()
+    return fig
