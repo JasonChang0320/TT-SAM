@@ -304,9 +304,9 @@ def cut_traces(traces,eq_id,before_p_sec=5,trace_length_sec=30): #traces is data
                     cutting_trace=trace[:end_cut_time,:]
                     cutting_trace=np.pad(cutting_trace,((abs(start_cut_point),0),(0,0)),"constant")
             else:
-                # print("no pad")
+                # print("no pad at the beginning")
                 cutting_trace=trace[start_cut_point:start_cut_point+trace_length_point,:]
-                if len(cutting_trace)<trace_length_point: #waveform too short, padding
+            if len(cutting_trace)<trace_length_point: #waveform too short, padding
                     cutting_trace=np.pad(cutting_trace,((0,trace_length_point-len(cutting_trace)),(0,0)),"constant")
             p_picks_point=int(np.round(tmp_traces["p_picks (sec)"][i].total_seconds()*sampling_rate,0)-start_cut_point)
             pga_time=int(tmp_traces["pga_time"][i]-start_cut_point)
