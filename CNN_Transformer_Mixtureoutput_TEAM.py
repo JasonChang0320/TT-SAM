@@ -1,11 +1,11 @@
-import torch
-import torch.nn as nn
-from torchsummary import summary
-import numpy as np
-from scipy import stats
 import matplotlib.pyplot as plt
 import numpy as np
+import torch
+import torch.nn as nn
+from scipy import stats
 from torch.autograd import Variable
+from torchsummary import summary
+
 
 class LambdaLayer(nn.Module):
 
@@ -64,7 +64,7 @@ class MLP(nn.Module):
 class CNN(nn.Module):
 
     def __init__(self,
-                 input_shape=(-1, 3000, 3),
+                 input_shape=(-1, 6000, 3),
                  activation=nn.ReLU(),
                  downsample=1,
                  mlp_dims=(500,300,200,150),
@@ -109,7 +109,7 @@ class CNN(nn.Module):
                                      nn.ReLU())
         self.conv1d5 = nn.Sequential(nn.Conv1d(32, 16, kernel_size=4),
                                      nn.ReLU())
-        self.mlp=MLP((5665, ), dims=self.mlp_dims)
+        self.mlp=MLP((11665, ), dims=self.mlp_dims)
 
     def forward(self, x):
 
@@ -204,7 +204,7 @@ class CNN_example(nn.Module):
 class PositionEmbedding(nn.Module):  # paper page11 B.2
 
     def __init__(self,
-                 wavelengths=((0.01, 15), (0.01, 15), (0.01, 10)),
+                 wavelengths=((5, 30), (110, 123), (0.01, 5000)),
                  emb_dim=500,
                  **kwargs):
         super(PositionEmbedding, self).__init__(**kwargs)
@@ -395,7 +395,7 @@ class full_model(nn.Module):
         self.pga_targets=pga_targets
         self.emb_dim=emb_dim
     def forward(self,data):
-        CNN_output = self.model_CNN(torch.DoubleTensor(data[0].reshape(-1,3000,3)).float().cuda())
+        CNN_output = self.model_CNN(torch.DoubleTensor(data[0].reshape(-1,6000,3)).float().cuda())
         CNN_output_reshape=torch.reshape(CNN_output,(-1,self.max_station,self.emb_dim))
 
         emb_output=self.model_Position(torch.DoubleTensor(data[1].reshape(-1,1,3)).float().cuda())
