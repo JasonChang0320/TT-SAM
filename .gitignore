@@ -5,3 +5,9 @@
 /data
 
 *.zip
+
+#mlflow
+/mlruns
+
+#model
+/model

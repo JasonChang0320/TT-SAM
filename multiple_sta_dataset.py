@@ -1,11 +1,12 @@
-import pandas as pd
-import numpy as np
-from torch.utils.data import Dataset, DataLoader
-import torch
-import h5py
 from itertools import repeat
-from tqdm import tqdm
+
+import h5py
+import numpy as np
+import pandas as pd
+import torch
 from numpy import ma
+from torch.utils.data import DataLoader, Dataset
+
 
 def shift_waveform(waveform,p_pick,start_before_sec=5,total_sec=30,sample_rate=200):
 
@@ -218,8 +219,5 @@ class multiple_station_dataset(Dataset):
 
 # full_data=multiple_station_dataset("D:/TEAM_TSMIP/data/TSMIP.hdf5",train_mode=True,mask_waveform_sec=3,sort_by_picks=False)   
 
-# loader=DataLoader(dataset=full_data,batch_size=16,shuffle=True)
-
-
-# for sample in tqdm(loader):
-#     event=sample[0]
+# batch_size=16
+# loader=DataLoader(dataset=full_data,batch_size=batch_size,shuffle=True)
