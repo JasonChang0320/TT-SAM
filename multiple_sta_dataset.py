@@ -18,7 +18,7 @@ def shift_waveform(waveform,p_pick,start_before_sec=5,total_sec=30,sample_rate=2
     return padded_waveform
 
 class multiple_station_dataset(Dataset):
-    def __init__(self,data_path,test_year=2018,train_mode=None,test_mode=None,limit=None,
+    def __init__(self,data_path,sampling_rate=200,data_length_sec=30,test_year=2018,train_mode=None,test_mode=None,limit=None,
                         filter_trace_by_p_pick=True,label_key="pga",
                         mask_waveform_sec=None,mask_waveform_random=False,oversample=1,oversample_mag=4,
                         max_station_num=25,pga_target=15,shift_waveform=True,sort_by_picks=True
@@ -28,11 +28,15 @@ class multiple_station_dataset(Dataset):
         trace_metadata = pd.read_hdf(data_path, 'metadata/traces_metadata')
 
         if train_mode:
-            test_mask=[int(year)!=test_year for year in event_metadata["year"]]
-            event_metadata=event_metadata[test_mask]
+            event_test_mask=[int(year)!=test_year for year in event_metadata["year"]]
+            trace_test_mask=[int(year)!=test_year for year in trace_metadata["year"]]
+            event_metadata=event_metadata[event_test_mask]
+            trace_metadata=trace_metadata[trace_test_mask]
         elif test_mode:
-            test_mask=[int(year)==test_year for year in event_metadata["year"]]
-            event_metadata=event_metadata[test_mask]
+            event_test_mask=[int(year)==test_year for year in event_metadata["year"]]
+            trace_test_mask=[int(year)==test_year for year in trace_metadata["year"]]
+            event_metadata=event_metadata[event_test_mask]
+            trace_metadata=trace_metadata[trace_test_mask]
         
         if limit:
             event_metadata = event_metadata.iloc[:limit]
@@ -136,6 +140,8 @@ class multiple_station_dataset(Dataset):
         self.event_metadata=event_metadata
         self.trace_metadata=trace_metadata
         self.data=data
+        self.sampling_rate=sampling_rate
+        self.data_length_sec=data_length_sec
         self.metadata=metadata 
         self.events_index=Events_index
         self.p_picks=p_picks
@@ -171,6 +177,8 @@ class multiple_station_dataset(Dataset):
                 station_location=f['data'][str(eventID[0])]["station_location"][eventID[1]]
                 if self.shift_waveform:
                     waveform=shift_waveform(waveform,p_pick)
+                else:
+                    waveform=np.pad(waveform,((0,self.data_length_sec*self.sampling_rate-len(waveform)),(0,0)),"constant")
                 pga=np.array(f['data'][str(eventID[0])]["pga"][eventID[1]]).reshape(1,1)
                 specific_waveforms.append(waveform)
                 # print(f"first {waveform.shape}")
@@ -194,17 +202,17 @@ class multiple_station_dataset(Dataset):
 
             Specific_waveforms=np.array(specific_waveforms)
             if self.mask_waveform_sec:
-                Specific_waveforms[:,(5+self.mask_waveform_sec)*100:,:]=0
+                Specific_waveforms[:,(5+self.mask_waveform_sec)*self.sampling_rate:,:]=0
             if self.mask_waveform_random:
                 for i in range(self.max_station_num):
                     if i==0:
-                        random_time=100*np.random.randint(4,25)
-                        mask = np.zeros(3000*3, dtype=int).reshape(3000,3)
+                        random_time=self.sampling_rate*np.random.randint(4,25)
+                        mask = np.zeros(self.sampling_rate*self.data_length_sec*3, dtype=int).reshape(self.sampling_rate*self.data_length_sec,3)
                         mask[:random_time,:]=1
                         mask = mask.astype(bool)
                     else:
-                        random_time=100*np.random.randint(4,25)
-                        tmp = np.zeros(3000*3, dtype=int).reshape(3000,3)
+                        random_time=self.sampling_rate*np.random.randint(4,25)
+                        tmp = np.zeros(self.sampling_rate*self.data_length_sec*3, dtype=int).reshape(self.sampling_rate*self.data_length_sec,3)
                         tmp[:random_time,:]=1
                         tmp = tmp.astype(bool)
                         mask=np.concatenate([mask,tmp])
