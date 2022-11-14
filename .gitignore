@@ -9,5 +9,6 @@
 #mlflow
 /mlruns
 
-#model
+#training
 /model
+/predict

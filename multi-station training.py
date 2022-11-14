@@ -16,7 +16,8 @@ from multiple_sta_dataset import multiple_station_dataset
 
 
 def train_process(full_Model,optimizer,hyper_param,num_of_gaussian=5,train_data_size=0.8):
-    with mlflow.start_run(run_name="TSMIP_EEW") as run:
+    experiment = mlflow.get_experiment_by_name("3_sec_model")
+    with mlflow.start_run(run_name="TSMIP_EEW",experiment_id=experiment.experiment_id) as run:
         log_params({"epochs":hyper_param["num_epochs"],
                     "batch size":hyper_param["batch_size"],
                     "learning rate":hyper_param["learning_rate"]})
@@ -52,8 +53,8 @@ def train_process(full_Model,optimizer,hyper_param,num_of_gaussian=5,train_data_
                 weight_masked=torch.masked_select(weight, mask).reshape(-1,num_of_gaussian)
                 sigma_masked=torch.masked_select(sigma, mask).reshape(-1,num_of_gaussian)
                 mu_masked=torch.masked_select(mu, mask).reshape(-1,num_of_gaussian)
-                train_loss = mdn_loss_fn(weight_masked, sigma_masked, mu_masked, pga_label_masked).cuda()
-                # train_loss=torch.mean(torch.sum(weight_masked*gaussian_loss(mu_masked, pga_label_masked, sigma_masked),axis=1)).cuda()
+                # train_loss = mdn_loss_fn(weight_masked, sigma_masked, mu_masked, pga_label_masked).cuda()
+                train_loss=torch.mean(torch.sum(weight_masked*gaussian_loss(mu_masked, pga_label_masked, sigma_masked),axis=1)).cuda()
                 train_loss.backward()
                 optimizer.step()
             print("train_loss",train_loss)
@@ -69,8 +70,8 @@ def train_process(full_Model,optimizer,hyper_param,num_of_gaussian=5,train_data_
                 weight_masked=torch.masked_select(weight, mask).reshape(-1,num_of_gaussian)
                 sigma_masked=torch.masked_select(sigma, mask).reshape(-1,num_of_gaussian)
                 mu_masked=torch.masked_select(mu, mask).reshape(-1,num_of_gaussian)
-                val_loss = mdn_loss_fn(weight_masked, sigma_masked, mu_masked, pga_label_masked).cuda()
-                # val_loss = torch.mean(torch.sum(weight_masked*gaussian_loss(mu_masked, pga_label_masked, sigma_masked),axis=1)).cuda()
+                # val_loss = mdn_loss_fn(weight_masked, sigma_masked, mu_masked, pga_label_masked).cuda()
+                val_loss = torch.mean(torch.sum(weight_masked*gaussian_loss(mu_masked, pga_label_masked, sigma_masked),axis=1)).cuda()
             print("val_loss",val_loss)
             validation_loss.append(val_loss.data)
             log_metrics({'train_loss': train_loss.item(), 'val_loss': val_loss.item()},step=epoch)   
@@ -119,41 +120,41 @@ def train_process(full_Model,optimizer,hyper_param,num_of_gaussian=5,train_data_
 # train_process(full_Model,optimizer,num_epochs,batch_size)
 
 if __name__ == '__main__':
-    batch_size=16
     train_data_size=0.8
     model_index=0
     num_epochs=100
-    for batch_size in [16,32]:
-        for LR in [1e-4,5*1e-5,1e-5]:
-            model_index+=1
-            hyper_param={
-                        "model_index":model_index,
-                        "num_epochs":num_epochs,
-                        "batch_size":batch_size,
-                        "learning_rate":LR
-                        }
-            print(f"learning rate: {LR}")
-            # num_epochs=30
-            # LR=1e-4
-            num_of_gaussian=5
-            emb_dim=150
-            mlp_dims=(150, 100, 50, 30, 10)
+    for num_epochs in [50,75,100]:
+        for batch_size in [16]:
+            for LR in [5*1e-5,1e-5]:
+                model_index+=1
+                hyper_param={
+                            "model_index":model_index,
+                            "num_epochs":num_epochs,
+                            "batch_size":batch_size,
+                            "learning_rate":LR
+                            }
+                print(f"learning rate: {LR}")
+                # num_epochs=30
+                # LR=1e-4
+                num_of_gaussian=5
+                emb_dim=150
+                mlp_dims=(150, 100, 50, 30, 10)
 
-            CNN_model=CNN().cuda()
-            pos_emb_model = PositionEmbedding(emb_dim=emb_dim).cuda()
-            transformer_model=TransformerEncoder()  
-            mlp_model=MLP(input_shape=(emb_dim,),dims=mlp_dims).cuda()
-            mdn_model=MDN(input_shape=(mlp_dims[-1],)).cuda()
+                CNN_model=CNN().cuda()
+                pos_emb_model = PositionEmbedding(emb_dim=emb_dim).cuda()
+                transformer_model=TransformerEncoder()  
+                mlp_model=MLP(input_shape=(emb_dim,),dims=mlp_dims).cuda()
+                mdn_model=MDN(input_shape=(mlp_dims[-1],)).cuda()
 
-            full_Model=full_model(CNN_model,pos_emb_model,transformer_model,mlp_model,mdn_model)
+                full_Model=full_model(CNN_model,pos_emb_model,transformer_model,mlp_model,mdn_model)
 
-            optimizer = torch.optim.Adam([
-                                    {'params':CNN_model.parameters()},
-                                    {'params':transformer_model.parameters()},
-                                    {"params":mlp_model.parameters()},
-                                    {'params':mdn_model.parameters()}
-                                    ], lr=LR)
-            full_Model,training_loss,validation_loss=train_process(full_Model,optimizer,hyper_param)
+                optimizer = torch.optim.Adam([
+                                        {'params':CNN_model.parameters()},
+                                        {'params':transformer_model.parameters()},
+                                        {"params":mlp_model.parameters()},
+                                        {'params':mdn_model.parameters()}
+                                        ], lr=LR)
+                full_Model,training_loss,validation_loss=train_process(full_Model,optimizer,hyper_param)
             # save model
             # path="../multi-station/consider station zero padding mask/mask after p_picking 3 sec"
             # FILE = f'{path}/model/target position not influence each other/{num_epochs} epoch model_lr{LR}_batch_size{batch_size}_earlystop oversample sort_picks.pt'
