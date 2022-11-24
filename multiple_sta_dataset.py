@@ -88,8 +88,8 @@ class multiple_station_dataset(Dataset):
         stations=np.concatenate(data["station_name"], axis=0)
         mask = (events_index != 0).any(axis=1)
         #picking over 30 seconds mask
+        picks= np.concatenate(data['p_picks'], axis=0)
         if filter_trace_by_p_pick:
-            picks= np.concatenate(data['p_picks'], axis=0)
             mask = np.logical_and(mask, picks < 6000)
         #label is nan mask
         mask=np.logical_and(mask,~np.isnan(labels))
