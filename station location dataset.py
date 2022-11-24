@@ -24,6 +24,7 @@ for sta in ["CHY","HWA","ILA","KAU","TAP","TCU","TTN"]:
     station_info=pd.concat([station_info, add_df])
 
 #merge data fron MH
+#data1
 station_code1=pd.read_csv(f"{sta_path}/station_code.csv")
 station_code2=pd.read_csv(f"{sta_path}/tsmip_factor.csv")
 merged_station_code=pd.merge(station_code1,station_code2,left_on="Station_Code",right_on="station_code")
@@ -38,11 +39,20 @@ for sta_code in add_df["location_code"].unique():
 uniqued_add_df=add_df.loc[save_index]
 uniqued_add_df.insert(0,"network","TSMIP")
 station_info=pd.concat([station_info, uniqued_add_df])
+
+#data2
+CWBstation=pd.read_csv(f"{sta_path}/CWBstation.log",sep='\s+',header=None)
+CWBstation.columns=["location_code","longitude","latitude","elevation (m)","starttime","endtime"]
+sta_filter=CWBstation["location_code"].isin(station_info["location_code"])
+add_df=CWBstation[~sta_filter][["location_code","longitude","latitude","elevation (m)"]]
+add_df.insert(0,"network","TSMIP")
+add_df.insert(1,"station_code",np.nan)
+station_info=pd.concat([station_info, add_df])
 station_info.sort_values(by=["location_code"],inplace=True)
 station_info.to_csv(f"{sta_path}/TSMIPstations_new.csv",index=False)
 
 # traces station location doesn't exist
-#TODO too many to drop, need to discuss!!! 75142 to 61880
+#75142 to 75129
 Afile_path="data/Afile"
 traces=pd.read_csv(f"{Afile_path}/2012-2020 traces with picking and label_new.csv")
 station_info=pd.read_csv(f"{sta_path}/TSMIPstations_new.csv")
@@ -50,7 +60,7 @@ sta_filter=traces["station_name"].isin(station_info["location_code"])
 tmp_traces=traces[sta_filter]
 tmp_traces.to_csv(f"{Afile_path}/2012-2020 traces with picking and label_new (sta location exist).csv",index=False)
 
-#drop event don't have at least one trace 8675 to 7843
+#drop event don't have at least one trace 8675 to 8675
 catalog=pd.read_csv(f"{Afile_path}/final catalog.csv")
 
 check_filter=catalog["EQ_ID"].isin(tmp_traces["EQ_ID"])
