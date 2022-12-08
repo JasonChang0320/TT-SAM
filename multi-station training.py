@@ -12,11 +12,12 @@ from CNN_Transformer_Mixtureoutput_TEAM import (CNN, MDN, MLP,
                                                 PositionEmbedding,
                                                 TransformerEncoder, full_model,
                                                 mdn_loss_fn)
-from multiple_sta_dataset import multiple_station_dataset
+from multiple_sta_dataset import (multiple_station_dataset,
+                                  multiple_station_dataset_new)
 
 
 def train_process(full_Model,optimizer,hyper_param,num_of_gaussian=5,train_data_size=0.8):
-    experiment = mlflow.get_experiment_by_name("3_sec_model")
+    experiment = mlflow.get_experiment_by_name("5_sec_with_new_dataset")
     with mlflow.start_run(run_name="TSMIP_EEW",experiment_id=experiment.experiment_id) as run:
         log_params({"epochs":hyper_param["num_epochs"],
                     "batch size":hyper_param["batch_size"],
@@ -24,7 +25,8 @@ def train_process(full_Model,optimizer,hyper_param,num_of_gaussian=5,train_data_
         use_cuda = torch.cuda.is_available()
         device = torch.device("cuda:0" if use_cuda else "cpu")
         cudnn.benchmark = True
-        full_data=multiple_station_dataset("D:/TEAM_TSMIP/data/TSMIP.hdf5",train_mode=True,mask_waveform_sec=3,oversample=1.5,oversample_mag=4) 
+        full_data=multiple_station_dataset_new("D:/TEAM_TSMIP/data/TSMIP.hdf5",train_mode=True,
+                                                mask_waveform_sec=5,test_year=2016) 
 
         train_set_size = int(len(full_data) * train_data_size)
         valid_set_size = len(full_data) - train_set_size
@@ -117,15 +119,15 @@ def train_process(full_Model,optimizer,hyper_param,num_of_gaussian=5,train_data_
             log_param("no early stop",epoch+1)
     return full_Model,training_loss,validation_loss
 
-# train_process(full_Model,optimizer,num_epochs,batch_size)
 
 if __name__ == '__main__':
     train_data_size=0.8
     model_index=0
     num_epochs=100
-    for num_epochs in [50,75,100]:
-        for batch_size in [16]:
-            for LR in [5*1e-5,1e-5]:
+    # batch_size=16
+    for batch_size in [16,32]:
+        for LR in [1e-4]:
+            for i in range(5):
                 model_index+=1
                 hyper_param={
                             "model_index":model_index,
@@ -134,8 +136,6 @@ if __name__ == '__main__':
                             "learning_rate":LR
                             }
                 print(f"learning rate: {LR}")
-                # num_epochs=30
-                # LR=1e-4
                 num_of_gaussian=5
                 emb_dim=150
                 mlp_dims=(150, 100, 50, 30, 10)
@@ -146,7 +146,7 @@ if __name__ == '__main__':
                 mlp_model=MLP(input_shape=(emb_dim,),dims=mlp_dims).cuda()
                 mdn_model=MDN(input_shape=(mlp_dims[-1],)).cuda()
 
-                full_Model=full_model(CNN_model,pos_emb_model,transformer_model,mlp_model,mdn_model)
+                full_Model=full_model(CNN_model,pos_emb_model,transformer_model,mlp_model,mdn_model,pga_targets=25)
 
                 optimizer = torch.optim.Adam([
                                         {'params':CNN_model.parameters()},
