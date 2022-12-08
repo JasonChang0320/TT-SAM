@@ -1,11 +1,13 @@
-from read_tsmip import *
 import os
-import pandas as pd
+
 import numpy as np
+import pandas as pd
 from tqdm import tqdm
 
+from read_tsmip import *
+
 Afile_path="data/Afile"
-traces=pd.read_csv(f"{Afile_path}/2012-2020 traces (no 2020_7-9, broken data, double event).csv")
+traces=pd.read_csv(f"{Afile_path}/1991-2020 traces (no broken data, double event).csv")
 sampling_rate=200
 
 add_columns=["p_picks (sec)","s_picks (sec)","pga","pga_time","pgv","pgv_time"]
@@ -15,6 +17,8 @@ traces[add_columns]=np.nan
 error_file={"year":[],"month":[],"file":[],"reason":[]}
 
 for trace_index in tqdm(traces.index):
+    if trace_index==53398: #cause kernel crush
+        continue
     year=traces["year"][trace_index]
     month=traces["month"][trace_index]
     path=f"data/waveform/{year}/{month}"
@@ -25,6 +29,8 @@ for trace_index in tqdm(traces.index):
     file_name=file_name.strip()
     try:
         trace=read_tsmip(f"{path}/{file_name}.txt")
+        if trace[0].stats.sampling_rate!=sampling_rate:
+            trace.resample(sampling_rate,window="hann")
         #picking
         p_pick,s_pick=ar_pick(trace[0],trace[1],trace[2],
                         samp_rate=sampling_rate,
@@ -61,12 +67,12 @@ for trace_index in tqdm(traces.index):
 
 error_file_df=pd.DataFrame(error_file)
 error_file_df["reason"]=error_file_df["reason"].astype(str)
-traces.to_csv(f"{Afile_path}/2012-2020 traces with picking and label_new.csv",index=False)
-error_file_df.to_csv(f"{Afile_path}/2012-2020 error in picking and label_new.csv",index=False)
+traces.to_csv(f"{Afile_path}/1991-2020 traces with picking and label_first.csv",index=False)
+error_file_df.to_csv(f"{Afile_path}/1991-2020 error in picking and label_first.csv",index=False)
 
 #picking again
-traces=pd.read_csv(f"{Afile_path}/2012-2020 traces with picking and label_new.csv")
-error_file_df=pd.read_csv(f"{Afile_path}/2012-2020 error in picking and label_new.csv")
+traces=pd.read_csv(f"{Afile_path}/1991-2020 traces with picking and label.csv")
+error_file_df=pd.read_csv(f"{Afile_path}/1991-2020 error in picking and label.csv")
 traces['file_name'] = traces['file_name'].str.strip()
 pick_again_filter=error_file_df["reason"].str.contains(r'^exception')
 
@@ -83,19 +89,24 @@ for i in pick_again_df.index:
     file_name=file_name.strip()
     trace=read_tsmip(f"{path}/{file_name}.txt")
     #picking
-    p_pick,s_pick=ar_pick(trace[0],trace[1],trace[2],
-                    samp_rate=sampling_rate,
-                    f1=1, #Frequency of the lower bandpass window
-                    f2=20, #Frequency of the upper bandpass window
-                    lta_p=1, #Length of LTA for the P arrival in seconds
-                    sta_p=0.1, #Length of STA for the P arrival in seconds
-                    lta_s=4.0, #Length of LTA for the S arrival in seconds
-                    sta_s=1.0, #Length of STA for the P arrival in seconds
-                    m_p=2, #Number of AR coefficients for the P arrival
-                    m_s=8, #Number of AR coefficients for the S arrival
-                    l_p=0.1,
-                    l_s=0.2,
-                    s_pick=True)
+    if trace[0].stats.sampling_rate!=sampling_rate:
+        trace.resample(sampling_rate,window="hann")
+    try:
+        p_pick,s_pick=ar_pick(trace[0],trace[1],trace[2],
+                        samp_rate=sampling_rate,
+                        f1=1, #Frequency of the lower bandpass window
+                        f2=20, #Frequency of the upper bandpass window
+                        lta_p=1, #Length of LTA for the P arrival in seconds
+                        sta_p=0.1, #Length of STA for the P arrival in seconds
+                        lta_s=4.0, #Length of LTA for the S arrival in seconds
+                        sta_s=1.0, #Length of STA for the P arrival in seconds
+                        m_p=2, #Number of AR coefficients for the P arrival
+                        m_s=8, #Number of AR coefficients for the S arrival
+                        l_p=0.1,
+                        l_s=0.2,
+                        s_pick=True)
+    except:
+        print(i)
     #get pga
     pga,pga_times=get_peak_value(trace)
     #get pgv
@@ -126,7 +137,7 @@ for i in traces.index:
     except:
         print(i,traces['start_time'][i])
         traces.drop([i],inplace=True)
-traces.to_csv(f"{Afile_path}/2012-2020 traces with picking and label.csv",index=False)
+traces.to_csv(f"{Afile_path}/1991-2020 traces with picking and label.csv",index=False)
 
 #drop traces corresponds to wrong event:
 for i in traces.index:
@@ -136,10 +147,10 @@ for i in traces.index:
     event_time=traces["hour"][i]*60*60+traces["minute"][i]*60+traces["second"][i]
     if abs(trace_start_time-event_time)> 5*60: #threshold 5 mins
         traces.drop([i],inplace=True)
-traces.to_csv(f"{Afile_path}/2012-2020 traces with picking and label.csv",index=False)
+traces.to_csv(f"{Afile_path}/1991-2020 traces with picking and label.csv",index=False)
 
 #drop event don't have at least one trace
-catalog=pd.read_csv(f"{Afile_path}/2012-2020 catalog (no 2020_7-9).csv")
+catalog=pd.read_csv(f"{Afile_path}/1991-2020 catalog.csv")
 
 check_filter=catalog["EQ_ID"].isin(traces["EQ_ID"])
 

@@ -1,14 +1,16 @@
-from read_tsmip import *
 import os
-import pandas as pd
-import numpy as np
+
 import h5py
+import numpy as np
+import pandas as pd
 from tqdm import tqdm
+
+from read_tsmip import *
 
 Afile_path="data/Afile"
 sta_path="data/station information"
-catalog=pd.read_csv(f"{Afile_path}/final catalog (station exist).csv")
-traces=pd.read_csv(f"{Afile_path}/2012-2020 traces with picking and label_new (sta location exist).csv")
+catalog=pd.read_csv(f"{Afile_path}/final catalog.csv")
+traces=pd.read_csv(f"{Afile_path}/1991-2020 traces with picking and label_new.csv")
 station_info=pd.read_csv(f"{sta_path}/TSMIPstations_new.csv")
 traces.loc[traces.index,"p_picks (sec)"]=pd.to_timedelta(traces["p_picks (sec)"],unit="sec")
 traces.loc[traces.index,"start_time"]=pd.to_datetime(traces['start_time'], format='%Y%m%d%H%M%S')
