@@ -5,42 +5,64 @@ import torch
 from torch.utils.data import DataLoader
 from wordcloud import WordCloud
 
-from multiple_sta_dataset import multiple_station_dataset
+from multiple_sta_dataset import (multiple_station_dataset,
+                                  multiple_station_dataset_new)
 
 #events histogram
 Afile_path="data/Afile"
-origin_catalog=pd.read_csv(f"{Afile_path}/2012-2020 catalog (no 2020_7-9).csv")
-catalog=pd.read_csv(f"{Afile_path}/final catalog (station exist).csv")
+origin_catalog=pd.read_csv(f"{Afile_path}/final catalog.csv")
+# catalog=pd.read_csv(f"{Afile_path}/final catalog (station exist).csv")
 
 validation_year=2018
 fig,ax=plt.subplots()
-ax.hist(catalog["magnitude"],bins=30,ec='black',label="train")
-year_filter=(catalog["year"]==validation_year)
-ax.hist(catalog[year_filter]["magnitude"],bins=30,ec='black',label="validation")
+ax.hist(origin_catalog["magnitude"],bins=30,ec='black',label="train")
+# year_filter=(origin_catalog["year"]==validation_year)
+# ax.hist(origin_catalog[year_filter]["magnitude"],bins=30,ec='black',label="validation")
 ax.set_yscale("log")
 ax.set_xlabel("Magnitude")
 ax.set_ylabel("number of events")
-ax.set_title(f"2012-2020 TSIMP data: validate on {validation_year}")
+ax.set_title(f"1991-2020 TSIMP data: validate on {validation_year}")
+ax.set_title(f"1991-2020 TSIMP event catalog")
 ax.legend()
 
 #traces pga histogram
-traces_catalog=pd.read_csv(f"{Afile_path}/2012-2020 traces with picking and label_new (sta location exist).csv")
-validation_year=2018
+# traces_catalog=pd.read_csv(f"{Afile_path}/2012-2020 traces with picking and label_new (sta location exist).csv")
+traces_catalog=pd.read_csv(f"{Afile_path}/1991-2020 traces with picking and label_new.csv")
+merged_catalog=pd.merge(traces_catalog,origin_catalog,how="left",on="EQ_ID")
+oldtime_catalog=merged_catalog[(merged_catalog["year_y"]>=1999) & (merged_catalog["year_y"]<=2020) & 
+                                (merged_catalog["magnitude"]>=5.5)]
+newtime_catalog=merged_catalog[(merged_catalog["year_y"]>=2018) & (merged_catalog["year_y"]<=2020) & 
+                                (merged_catalog["magnitude"]>=4.5) & (merged_catalog["magnitude"]<5.5)]
+now_catalog=merged_catalog[(merged_catalog["year_y"]>=2012) & (merged_catalog["year_y"]<=2020)]
+concat_catalog=pd.concat([oldtime_catalog,newtime_catalog])
+# validation_year=2018
+PGA=np.sqrt(now_catalog["pga_z"]**2+
+            now_catalog["pga_ns"]**2+
+            now_catalog["pga_ew"]**2)
+PGA_filtered=np.sqrt(concat_catalog["pga_z"]**2+
+            concat_catalog["pga_ns"]**2+
+            concat_catalog["pga_ew"]**2)
 fig,ax=plt.subplots()
-ax.hist(traces_catalog["pga"],bins=30,ec='black',label="train")
-year_filter=(traces_catalog["year"]==validation_year)
-ax.hist(traces_catalog[year_filter]["pga"],bins=30,ec='black',label="validation")
+ax.hist(np.log10(PGA/100),bins=80,ec='black')
+ax.hist(np.log10(PGA_filtered/100),bins=80,ec='black',alpha=0.5)
+# ax.hist(traces_catalog["pga"],bins=30,ec='black',label="train")
+# year_filter=(traces_catalog["year"]==validation_year)
+# ax.hist(traces_catalog[year_filter]["pga"],bins=30,ec='black',label="validation")
 pga_threshold = np.log10(
-    [1e-5, 0.008, 0.025, 0.080, 0.250, 0.80, 1.4, 2.5, 4.4, 8.0])
+    [1e-5, 0.008, 0.025, 0.080, 0.250, 0.80, 1.4, 2.5, 4.4, 8.0,10])
+# pga_threshold = [100*1e-5, 100*0.008, 100*0.025, 100*0.080, 100*0.250,
+#                 100*0.80, 100*1.4, 100*2.5, 100*4.4, 100*8.0,100*10]
 label = ["0", "1", "2", "3", "4", "5-", "5+", "6-", "6+", "7"]
 ax.vlines(pga_threshold[1:-1],0,17700,linestyles='dotted',color="k")
-for i in range(len(pga_threshold)-1):
+for i in range(len(label)):
     ax.text((pga_threshold[i]+pga_threshold[i+1])/2,15000,label[i])
 ax.set_yscale("log")
-ax.set_xlabel("log (PGA m/s2)")
+# ax.set_xlabel("log (PGA m/s2)")
+ax.set_xlabel("PGA (gal)")
 ax.set_ylabel("number of traces")
-ax.set_title(f"2012-2020 TSIMP data: validate on {validation_year}")
-ax.legend(loc="upper left")
+ax.set_title(f"TSMIP traces")
+# ax.set_title(f"2012-2020 TSIMP data: validate on {validation_year}")
+# ax.legend(loc="upper left")                
 
 
 #station don't have location
@@ -77,8 +99,9 @@ ax.set_title(f"2012-2020 TSIMP no station location: validate on {validataion_yea
 ax.legend(loc="center right")
 
 #2012-2020 training data (add oversampling)
-origin_data=multiple_station_dataset("D:/TEAM_TSMIP/data/TSMIP.hdf5",train_mode=True,mask_waveform_sec=3,filter_trace_by_p_pick=False)
-oversample_data=multiple_station_dataset("D:/TEAM_TSMIP/data/TSMIP.hdf5",train_mode=True,mask_waveform_sec=3,oversample=1.5,oversample_mag=4,filter_trace_by_p_pick=False) 
+origin_data=multiple_station_dataset_new("D:/TEAM_TSMIP/data/TSMIP.hdf5",train_mode=True,mask_waveform_sec=5) 
+oversample_data=multiple_station_dataset_new("D:/TEAM_TSMIP/data/TSMIP.hdf5",train_mode=True,mask_waveform_sec=5,oversample=1.5,oversample_mag=5)
+pre1=pd.read_csv(f"./predict/model7 5 sec prediction.csv")
 
 
 origin_loader=DataLoader(dataset=origin_data,batch_size=16)
@@ -99,12 +122,13 @@ for sample in oversample_loader:
     oversample_PGA.extend(tmp_pga)
 
 
+
 label = [ "1", "2", "3", "4", "5-", "5+", "6-", "6+", "7"]
 pga_threshold = np.log10(
     [0.008, 0.025, 0.080, 0.250, 0.80, 1.4, 2.5, 4.4, 8.0])
 
 fig,ax=plt.subplots(figsize=(7,7))
-ax.hist(oversample_PGA,bins=32,edgecolor="k",color = "lightblue",label="oversample")
+# ax.hist(oversample_PGA,bins=32,edgecolor="k",color = "lightblue",label="oversample")
 ax.hist(origin_PGA,bins=32,edgecolor="k",label="origin data")
 # ax.hist(pre1["answer"],bins=28,edgecolor="k",label="test data")
 ax.vlines(pga_threshold[1:-1],0,17700,linestyles='dotted',color="k")
@@ -113,9 +137,10 @@ for i in range(len(pga_threshold)-1):
 ax.set_ylabel("number of trace")
 ax.set_xlabel("log(PGA (m/s2))")
 ax.set_title("TSMIP data PGA distribution")
-ax.set_yscale("log")
+# ax.set_yscale("log")
 fig.legend(loc='upper right')
 
+#
 pre1=pd.read_csv("D:/TEAM_TSMIP/predict/model4 3 sec prediction.csv")
 
 fig,ax=plt.subplots(figsize=(7,7))

@@ -1,9 +1,11 @@
-import obspy
-import pandas as pd
 import re
-from obspy.signal.trigger import ar_pick
+
 import matplotlib.pyplot as plt
 import numpy as np
+import obspy
+import pandas as pd
+from obspy.signal.trigger import ar_pick
+
 
 def read_tsmip(txt):
     # data = pd.read_fwf(txt, delim_whitespace=True, skiprows=10).to_numpy()
@@ -42,21 +44,22 @@ def classify_event_trace(afile_path,afile_name,trace_folder):
                 events.append(line)
                 tmp_trace=[]
             else:
-                if line[46:59].strip() in trace_folder:
+                if line[46:59].strip()+".txt" in trace_folder:
                     tmp_trace.append(line)
         traces.append(tmp_trace) #remember to add the last event's traces
     return events,traces
 
 def read_header(header,EQ_ID=None):
-    if int(header[1:2]) == 9:
-        header = header.replace("9", "199", 1)
+    # if int(header[1:2]) == 9:
+    #     header = header.replace("9", "199", 1)
+    # print(header)
     header_info = {
         "year": int(header[0:4]),
         "month": int(header[4:6]),
         "day": int(header[6:8]),
         "hour": int(header[8:10]),
         "minute": int(header[10:12]),
-        "second": float(header[12:18]),
+        "second": float(header[13:18]),
         "lat": float(header[18:20]),
         "lat_minute": float(header[20:25]),
         "lon": int(header[25:28]),
