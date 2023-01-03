@@ -231,14 +231,25 @@ def get_integrated_stream(stream):
     stream_vel.integrate()
     return stream_vel
 
-def cut_traces(traces,eq_id,before_p_sec=5,trace_length_sec=30): #traces is dataframe
+def cut_traces(traces,eq_id,before_p_sec=5,trace_length_sec=30,event_duration_sec=60,target_sampling_rate=200): #traces is dataframe
     traces_info={"traces":[],"p_picks":[],"start_time":[],
                     "pga":[],"pgv":[],"pga_time":[],"pgv_time":[]}
     traces_filter=(traces["EQ_ID"]==eq_id)
     tmp_traces=traces[traces_filter]
+    # tmp_traces=tmp_traces.copy()
+    # tmp_traces.loc[:,"record_time"]=tmp_traces["start_time"] + tmp_traces["p_picks (sec)"]
+    # print(tmp_traces)
+    # correct_traces_filter=(tmp_traces["record_time"]>pd.to_datetime(tmp_traces[["year","month","day","hour","minute","second"]]))
+    # tmp_traces=tmp_traces[correct_traces_filter]
 
-    sorted_indices = (tmp_traces["start_time"] + tmp_traces["p_picks (sec)"])\
-                        .sort_values().index
+    # sorted_indices = tmp_traces["epdis (km)"].sort_values().index
+    # tmp_traces=tmp_traces.loc[sorted_indices, :].reset_index(drop=True)
+    # print(tmp_traces)
+    # end_time_filter1=tmp_traces["record_time"]>=tmp_traces["record_time"][0]
+    # end_time_filter2=tmp_traces["record_time"]<=tmp_traces["record_time"][0]+pd.to_timedelta(event_duration_sec, unit='s')
+    # tmp_traces=tmp_traces[end_time_filter1 & end_time_filter2]
+
+    sorted_indices = tmp_traces["epdis (km)"].sort_values().index
     tmp_traces=tmp_traces.loc[sorted_indices, :].reset_index(drop=True)
 
     year=tmp_traces["year"][0]
@@ -252,10 +263,12 @@ def cut_traces(traces,eq_id,before_p_sec=5,trace_length_sec=30): #traces is data
     file_name=file_name.strip()
     stream=read_tsmip(f"{path}/{file_name}.txt")
     sampling_rate=stream[0].stats["sampling_rate"]
+    if sampling_rate!=target_sampling_rate:
+        stream.resample(target_sampling_rate,window="hann")
     trace=np.transpose(np.array(stream))/100 #cm/s^2 to m/s^2
 
-    trace_length_point=int(trace_length_sec*sampling_rate)
-    first_start_cut_point=int((np.round(tmp_traces["p_picks (sec)"][0].total_seconds(),2)-before_p_sec)*sampling_rate)
+    trace_length_point=int(trace_length_sec*target_sampling_rate)
+    first_start_cut_point=int((np.round(tmp_traces["p_picks (sec)"][0].total_seconds(),2)-before_p_sec)*target_sampling_rate)
     if first_start_cut_point<0:
         first_start_cut_point=0
     if first_start_cut_point+trace_length_point>len(trace): #zero padding
@@ -266,10 +279,10 @@ def cut_traces(traces,eq_id,before_p_sec=5,trace_length_sec=30): #traces is data
         if len(init_trace)<trace_length_point:
             init_trace=np.pad(init_trace,((0,trace_length_point-len(init_trace)),(0,0)),"constant")
 
-    p_picks_point=int(np.round(tmp_traces["p_picks (sec)"][0].total_seconds()*sampling_rate,0)-first_start_cut_point)
+    p_picks_point=int(np.round(tmp_traces["p_picks (sec)"][0].total_seconds()*target_sampling_rate,0)-first_start_cut_point)
     pga_time=int(tmp_traces["pga_time"][0]-first_start_cut_point)
     pgv_time=int(tmp_traces["pgv_time"][0]-first_start_cut_point)
-    start_cutting_time=tmp_traces["start_time"][0]+pd.to_timedelta(first_start_cut_point/sampling_rate,unit="sec")
+    start_cutting_time=tmp_traces["start_time"][0]+pd.to_timedelta(first_start_cut_point/target_sampling_rate,unit="sec")
 
     traces_info["traces"].append(init_trace)
     traces_info["p_picks"].append(p_picks_point)
@@ -294,10 +307,14 @@ def cut_traces(traces,eq_id,before_p_sec=5,trace_length_sec=30): #traces is data
             file_name=file_name.strip()
             stream=read_tsmip(f"{path}/{file_name}.txt")
             sampling_rate=stream[0].stats["sampling_rate"]
+            
+            if sampling_rate!=target_sampling_rate:
+                stream.resample(target_sampling_rate,window="hann")
+                
             trace=np.transpose(np.array(stream))/100 #cm/s^2 to m/s^2
             window_cut_time=(tmp_traces["start_time"][0]-tmp_traces["start_time"][i]).total_seconds()+\
-                            (first_start_cut_point/sampling_rate)
-            start_cut_point=int(window_cut_time*sampling_rate)
+                            (first_start_cut_point/target_sampling_rate)
+            start_cut_point=int(window_cut_time*target_sampling_rate)
             if window_cut_time<0:
                 # print("pad at the beginning")
                 end_cut_time=trace_length_point+start_cut_point
@@ -311,7 +328,7 @@ def cut_traces(traces,eq_id,before_p_sec=5,trace_length_sec=30): #traces is data
                 cutting_trace=trace[start_cut_point:start_cut_point+trace_length_point,:]
             if len(cutting_trace)<trace_length_point: #waveform too short, padding
                     cutting_trace=np.pad(cutting_trace,((0,trace_length_point-len(cutting_trace)),(0,0)),"constant")
-            p_picks_point=int(np.round(tmp_traces["p_picks (sec)"][i].total_seconds()*sampling_rate,0)-start_cut_point)
+            p_picks_point=int(np.round(tmp_traces["p_picks (sec)"][i].total_seconds()*target_sampling_rate,0)-start_cut_point)
             pga_time=int(tmp_traces["pga_time"][i]-start_cut_point)
             pgv_time=int(tmp_traces["pgv_time"][i]-start_cut_point)
 

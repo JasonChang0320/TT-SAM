@@ -149,10 +149,43 @@ for i in traces.index:
         traces.drop([i],inplace=True)
 traces.to_csv(f"{Afile_path}/1991-2020 traces with picking and label.csv",index=False)
 
+
+# traces station location doesn't exist
+sta_path="data/station information"
+Afile_path="data/Afile"
+traces=pd.read_csv(f"{Afile_path}/1991-2020 traces with picking and label_new.csv")
+station_info=pd.read_csv(f"{sta_path}/TSMIPstations_new.csv")
+sta_filter=traces["station_name"].isin(station_info["location_code"])
+tmp_traces=traces[sta_filter]
+tmp_traces.to_csv(f"{Afile_path}/1991-2020 traces with picking and label_new (sta location exist).csv",index=False)
+
+#drop traces don't belongs to right event
+event_duration_sec=60
+tmp_traces=pd.read_csv(f"{Afile_path}/1991-2020 traces with picking and label_new (sta location exist).csv")
+tmp_traces.loc[tmp_traces.index,"p_picks (sec)"]=pd.to_timedelta(tmp_traces["p_picks (sec)"],unit="sec")
+tmp_traces.loc[tmp_traces.index,"start_time"]=pd.to_datetime(tmp_traces['start_time'], format='%Y%m%d%H%M%S')
+tmp_traces.loc[:,"record_time"]=tmp_traces["start_time"] + tmp_traces["p_picks (sec)"]
+correct_traces_filter=(tmp_traces["record_time"]>pd.to_datetime(tmp_traces[["year","month","day","hour","minute","second"]]))
+tmp_traces=tmp_traces[correct_traces_filter]
+
+Traces=[]
+for eq_id in pd.unique(tmp_traces["EQ_ID"]):
+    single_event_traces=tmp_traces[tmp_traces["EQ_ID"]==eq_id]
+    sorted_indices = single_event_traces["epdis (km)"].sort_values().index
+    single_event_traces=single_event_traces.loc[sorted_indices, :].reset_index(drop=True)
+    # print(tmp_traces)
+    end_time_filter1=single_event_traces["record_time"]>=single_event_traces["record_time"][0]
+    end_time_filter2=single_event_traces["record_time"]<=single_event_traces["record_time"][0]+pd.to_timedelta(event_duration_sec, unit='s')
+    single_event_traces=single_event_traces[end_time_filter1 & end_time_filter2]
+    Traces.append(single_event_traces)
+Traces_df=pd.concat(Traces)
+Traces_df.to_csv(f"{Afile_path}/1991-2020 traces with picking and label_new (sta location exist)_1.csv",index=False)
+
 #drop event don't have at least one trace
 catalog=pd.read_csv(f"{Afile_path}/1991-2020 catalog.csv")
+tmp_traces=pd.read_csv(f"{Afile_path}/1991-2020 traces with picking and label_new (sta location exist)_1.csv")
 
-check_filter=catalog["EQ_ID"].isin(traces["EQ_ID"])
+check_filter=catalog["EQ_ID"].isin(tmp_traces["EQ_ID"])
 
 catalog.drop(catalog[~check_filter].index,inplace=True)
-catalog.to_csv(f"{Afile_path}/final catalog.csv",index=False)
+catalog.to_csv(f"{Afile_path}/final catalog (station exist)_1.csv",index=False)

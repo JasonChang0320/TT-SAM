@@ -9,18 +9,14 @@ from read_tsmip import *
 
 Afile_path="data/Afile"
 sta_path="data/station information"
-catalog=pd.read_csv(f"{Afile_path}/final catalog.csv")
-traces=pd.read_csv(f"{Afile_path}/1991-2020 traces with picking and label_new.csv")
+catalog=pd.read_csv(f"{Afile_path}/final catalog (station exist)_1.csv")
+traces=pd.read_csv(f"{Afile_path}/1991-2020 traces with picking and label_new (sta location exist)_1.csv")
 station_info=pd.read_csv(f"{sta_path}/TSMIPstations_new.csv")
-traces.loc[traces.index,"p_picks (sec)"]=pd.to_timedelta(traces["p_picks (sec)"],unit="sec")
-traces.loc[traces.index,"start_time"]=pd.to_datetime(traces['start_time'], format='%Y%m%d%H%M%S')
+traces.loc[traces.index,"p_picks (sec)"]=pd.to_timedelta(traces["p_picks (sec)"])
+traces.loc[traces.index,"start_time"]=pd.to_datetime(traces['start_time'], format="%Y-%m-%d %H:%M:%S")
 
-eq_id=2561
-eq_id=7613
-eq_id=4682
-eq_id=423
 
-output="data/TSMIP.hdf5"
+output="data/TSMIP_new.hdf5"
 error_event={"EQ_ID":[],"reason":[]}
 with h5py.File(output, 'w') as file:
         data = file.create_group('data')
@@ -36,7 +32,9 @@ with h5py.File(output, 'w') as file:
                                             station_info[["location_code","latitude","longitude","elevation (m)"]],
                                             how="left",left_on="station_name",right_on="location_code")
                 location_array=np.array(tmp_station_info[["latitude","longitude","elevation (m)"]])
-
+                if(np.isnan(location_array).any()):
+                    print("The location array contain NaN values")
+                    continue
                 event = data.create_group(f"{eq_id}")
                 event.create_dataset("traces", data=traces_info["traces"],dtype=np.float64)
                 event.create_dataset("p_picks", data=traces_info["p_picks"],dtype=np.int64)
