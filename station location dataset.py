@@ -52,13 +52,12 @@ station_info.sort_values(by=["location_code"],inplace=True)
 station_info.to_csv(f"{sta_path}/TSMIPstations_new.csv",index=False)
 
 # traces station location doesn't exist
-#75142 to 75129
 Afile_path="data/Afile"
-traces=pd.read_csv(f"{Afile_path}/2012-2020 traces with picking and label_new.csv")
+traces=pd.read_csv(f"{Afile_path}/1991-2020 traces with picking and label_new.csv")
 station_info=pd.read_csv(f"{sta_path}/TSMIPstations_new.csv")
 sta_filter=traces["station_name"].isin(station_info["location_code"])
 tmp_traces=traces[sta_filter]
-tmp_traces.to_csv(f"{Afile_path}/2012-2020 traces with picking and label_new (sta location exist).csv",index=False)
+tmp_traces.to_csv(f"{Afile_path}/1991-2020 traces with picking and label_new (sta location exist).csv",index=False)
 
 #drop event don't have at least one trace 8675 to 8675
 catalog=pd.read_csv(f"{Afile_path}/final catalog.csv")

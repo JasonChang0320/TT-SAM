@@ -99,13 +99,17 @@ ax.set_title(f"2012-2020 TSIMP no station location: validate on {validataion_yea
 ax.legend(loc="center right")
 
 #2012-2020 training data (add oversampling)
-origin_data=multiple_station_dataset_new("D:/TEAM_TSMIP/data/TSMIP.hdf5",train_mode=True,mask_waveform_sec=5) 
-oversample_data=multiple_station_dataset_new("D:/TEAM_TSMIP/data/TSMIP.hdf5",train_mode=True,mask_waveform_sec=5,oversample=1.5,oversample_mag=5)
-pre1=pd.read_csv(f"./predict/model7 5 sec prediction.csv")
+origin_data=multiple_station_dataset_new("D:/TEAM_TSMIP/data/TSMIP.hdf5",train_mode=True,mask_waveform_sec=5,mag_threshold=0)  
+new_data=multiple_station_dataset_new("D:/TEAM_TSMIP/data/TSMIP.hdf5",train_mode=True,mask_waveform_sec=5,mag_threshold=4)
+new_data1=multiple_station_dataset_new("D:/TEAM_TSMIP/data/TSMIP.hdf5",train_mode=True,mask_waveform_sec=5,mag_threshold=4.5)
+# oversample_data=multiple_station_dataset_new("D:/TEAM_TSMIP/data/TSMIP.hdf5",train_mode=True,mask_waveform_sec=5,oversample=1.5,oversample_mag=5)
+# pre1=pd.read_csv(f"./predict/model7 5 sec prediction.csv")
 
 
 origin_loader=DataLoader(dataset=origin_data,batch_size=16)
-oversample_loader=DataLoader(dataset=oversample_data,batch_size=16)
+new_loader=DataLoader(dataset=new_data,batch_size=16)
+new_loader1=DataLoader(dataset=new_data1,batch_size=16)
+
 
 origin_PGA=[]
 for sample in origin_loader:
@@ -114,13 +118,19 @@ for sample in origin_loader:
                                 sample[3].flatten().nonzero().flatten()).tolist()
     origin_PGA.extend(tmp_pga)
 
-oversample_PGA=[]
-for sample in oversample_loader:
-    tmp_pga=torch.index_select(sample[3].flatten(),
+new_PGA=[]
+for sample in new_loader:
+    tmp_pga=torch.index_select(sample[3].flatten(), 
                                 0, 
                                 sample[3].flatten().nonzero().flatten()).tolist()
-    oversample_PGA.extend(tmp_pga)
+    new_PGA.extend(tmp_pga)
 
+new_PGA1=[]
+for sample in new_loader1:
+    tmp_pga=torch.index_select(sample[3].flatten(), 
+                                0, 
+                                sample[3].flatten().nonzero().flatten()).tolist()
+    new_PGA1.extend(tmp_pga)
 
 
 label = [ "1", "2", "3", "4", "5-", "5+", "6-", "6+", "7"]
@@ -128,8 +138,9 @@ pga_threshold = np.log10(
     [0.008, 0.025, 0.080, 0.250, 0.80, 1.4, 2.5, 4.4, 8.0])
 
 fig,ax=plt.subplots(figsize=(7,7))
-# ax.hist(oversample_PGA,bins=32,edgecolor="k",color = "lightblue",label="oversample")
 ax.hist(origin_PGA,bins=32,edgecolor="k",label="origin data")
+ax.hist(new_PGA,bins=32,edgecolor="k",color = "lightblue",label="mag>=4")
+ax.hist(new_PGA1,bins=32,edgecolor="k",label="mag>=4.5")
 # ax.hist(pre1["answer"],bins=28,edgecolor="k",label="test data")
 ax.vlines(pga_threshold[1:-1],0,17700,linestyles='dotted',color="k")
 for i in range(len(pga_threshold)-1):
@@ -137,7 +148,7 @@ for i in range(len(pga_threshold)-1):
 ax.set_ylabel("number of trace")
 ax.set_xlabel("log(PGA (m/s2))")
 ax.set_title("TSMIP data PGA distribution")
-# ax.set_yscale("log")
+ax.set_yscale("log")
 fig.legend(loc='upper right')
 
 #
