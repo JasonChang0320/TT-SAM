@@ -17,7 +17,7 @@ from multiple_sta_dataset import (multiple_station_dataset,
 
 
 def train_process(full_Model,optimizer,hyper_param,num_of_gaussian=5,train_data_size=0.8):
-    experiment = mlflow.get_experiment_by_name("5_sec_with_new_dataset")
+    experiment = mlflow.get_experiment_by_name("1991-2020 updated_dataset 3 sec")
     with mlflow.start_run(run_name="TSMIP_EEW",experiment_id=experiment.experiment_id) as run:
         log_params({"epochs":hyper_param["num_epochs"],
                     "batch size":hyper_param["batch_size"],
@@ -25,8 +25,10 @@ def train_process(full_Model,optimizer,hyper_param,num_of_gaussian=5,train_data_
         use_cuda = torch.cuda.is_available()
         device = torch.device("cuda:0" if use_cuda else "cpu")
         cudnn.benchmark = True
-        full_data=multiple_station_dataset_new("D:/TEAM_TSMIP/data/TSMIP.hdf5",train_mode=True,
-                                                mask_waveform_sec=5,test_year=2016) 
+        # full_data=multiple_station_dataset("D:/TEAM_TSMIP/data/TSMIP_new.hdf5",train_mode=True,oversample=1.5,
+        #                                         mask_waveform_sec=3,test_year=2018) 
+        full_data=multiple_station_dataset_new("D:/TEAM_TSMIP/data/TSMIP_new.hdf5",train_mode=True,mask_waveform_sec=3,
+                                                trigger_station_threshold=1,oversample=1.5) 
 
         train_set_size = int(len(full_data) * train_data_size)
         valid_set_size = len(full_data) - train_set_size
@@ -47,7 +49,12 @@ def train_process(full_Model,optimizer,hyper_param,num_of_gaussian=5,train_data_
             for sample in tqdm(train_loader):
                 optimizer.zero_grad()
                 weight,sigma,mu = full_Model(sample)
-
+                # if(np.isnan(sample[1]).any()):
+                #     print("The Array contain NaN values")
+                #     for value in sample[1].flatten():
+                #         print(value)
+                # else:
+                #     print("The Array does not contain NaN values")
                 pga_label=sample[3].reshape(hyper_param["batch_size"],full_data.pga_target,1).cuda()
                 mask=~pga_label.eq(0) #不讓pga zero padding去計算loss
 
@@ -55,6 +62,7 @@ def train_process(full_Model,optimizer,hyper_param,num_of_gaussian=5,train_data_
                 weight_masked=torch.masked_select(weight, mask).reshape(-1,num_of_gaussian)
                 sigma_masked=torch.masked_select(sigma, mask).reshape(-1,num_of_gaussian)
                 mu_masked=torch.masked_select(mu, mask).reshape(-1,num_of_gaussian)
+                # print("pga",pga_label_masked),print("w",weight_masked),print("s",sigma_masked),print("mu",mu_masked)
                 # train_loss = mdn_loss_fn(weight_masked, sigma_masked, mu_masked, pga_label_masked).cuda()
                 train_loss=torch.mean(torch.sum(weight_masked*gaussian_loss(mu_masked, pga_label_masked, sigma_masked),axis=1)).cuda()
                 train_loss.backward()
@@ -126,7 +134,7 @@ if __name__ == '__main__':
     num_epochs=100
     # batch_size=16
     for batch_size in [16,32]:
-        for LR in [1e-4]:
+        for LR in [1e-5,5e-5,1e-4]:
             for i in range(5):
                 model_index+=1
                 hyper_param={

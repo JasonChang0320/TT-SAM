@@ -241,14 +241,15 @@ import pandas as pd
 class multiple_station_dataset_new(Dataset):
     def __init__(self,data_path,sampling_rate=200,data_length_sec=30,test_year=2018,train_mode=None,test_mode=None,limit=None,
                         label_key="pga",mask_waveform_sec=None,oversample=1,oversample_mag=4,
-                        max_station_num=25,pga_target=25,sort_by_picks=True,trigger_station_threshold=3
+                        max_station_num=25,pga_target=25,sort_by_picks=True,trigger_station_threshold=3,mag_threshold=0
                         ):
         event_metadata = pd.read_hdf(data_path, 'metadata/event_metadata')
         trace_metadata = pd.read_hdf(data_path, 'metadata/traces_metadata')
+        event_metadata = event_metadata[event_metadata["magnitude"]>=mag_threshold]
         if train_mode:
             event_test_mask=[int(year)!=test_year for year in event_metadata["year"]]
             trace_test_mask=[int(year)!=test_year for year in trace_metadata["year"]]
-            event_metadata=event_metadata[event_test_mask & mag_mask]
+            event_metadata=event_metadata[event_test_mask]
             trace_metadata=trace_metadata[trace_test_mask]
         elif test_mode:
             event_test_mask=[int(year)==test_year for year in event_metadata["year"]]
@@ -294,7 +295,6 @@ class multiple_station_dataset_new(Dataset):
         labels = np.concatenate(data[label_key],axis=0)
         stations=np.concatenate(data["station_name"], axis=0)
         picks= np.concatenate(data['p_picks'], axis=0)
-
         mask = (events_index != 0).any(axis=1)
         #label is nan mask
         mask=np.logical_and(mask,~np.isnan(labels))
@@ -363,7 +363,7 @@ class multiple_station_dataset_new(Dataset):
     def __getitem__(self, index):
 
         specific_index=self.events_index[index]
-        with h5py.File("D:/TEAM_TSMIP/data/TSMIP.hdf5", 'r') as f:
+        with h5py.File(self.data_path, 'r') as f:
                     # for index in specific_index: #event loop
                     specific_waveforms=[]
                     stations_location=[]
@@ -398,16 +398,22 @@ class multiple_station_dataset_new(Dataset):
                     Specific_waveforms=np.array(specific_waveforms)
                     if self.mask_waveform_sec:
                         Specific_waveforms[:,P_picks[0]+(self.mask_waveform_sec*self.sampling_rate):,:]=0
+                        for i in range(len(P_picks)):
+                            if P_picks[i]>P_picks[0]+(self.mask_waveform_sec*self.sampling_rate):
+                                Specific_waveforms[i,:,:]=0
                     Stations_location=np.array(stations_location)
                     PGA_targets_location=np.array(pga_targets_location)
                     PGA_labels=np.array(pga_labels)
-        return Specific_waveforms,Stations_location,PGA_targets_location,PGA_labels
+                    P_picks=np.array(P_picks)
+        return Specific_waveforms,Stations_location,PGA_targets_location,PGA_labels          
+        # return Specific_waveforms,Stations_location,PGA_targets_location,PGA_labels,P_picks,specific_index[0]
 
-full_data=multiple_station_dataset_new("D:/TEAM_TSMIP/data/TSMIP.hdf5",train_mode=True,mask_waveform_sec=5)   
+# full_data=multiple_station_dataset("D:/TEAM_TSMIP/data/TSMIP_new.hdf5",train_mode=True,mask_waveform_sec=3,oversample=1.5)   
 # batch_size=16
 # loader=DataLoader(dataset=full_data,batch_size=batch_size,shuffle=True)
 # a=0
 # for sample in full_data:
+#     print(np.isnan(sample[0]).any())
 # # import matplotlib.pyplot as plt
 #     fig,ax=plt.subplots(25,1,figsize=(14,14))
 #     for i in range(25):
