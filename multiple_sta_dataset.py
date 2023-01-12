@@ -239,19 +239,19 @@ import pandas as pd
 
 
 class multiple_station_dataset_new(Dataset):
-    def __init__(self,data_path,sampling_rate=200,data_length_sec=30,test_year=2018,train_mode=None,test_mode=None,limit=None,
+    def __init__(self,data_path,sampling_rate=200,data_length_sec=30,test_year=2018,mode="train",limit=None,
                         label_key="pga",mask_waveform_sec=None,oversample=1,oversample_mag=4,
                         max_station_num=25,pga_target=25,sort_by_picks=True,trigger_station_threshold=3,mag_threshold=0
                         ):
         event_metadata = pd.read_hdf(data_path, 'metadata/event_metadata')
         trace_metadata = pd.read_hdf(data_path, 'metadata/traces_metadata')
         event_metadata = event_metadata[event_metadata["magnitude"]>=mag_threshold]
-        if train_mode:
+        if mode=="train":
             event_test_mask=[int(year)!=test_year for year in event_metadata["year"]]
             trace_test_mask=[int(year)!=test_year for year in trace_metadata["year"]]
             event_metadata=event_metadata[event_test_mask]
             trace_metadata=trace_metadata[trace_test_mask]
-        elif test_mode:
+        elif mode=="test":
             event_test_mask=[int(year)==test_year for year in event_metadata["year"]]
             trace_test_mask=[int(year)==test_year for year in trace_metadata["year"]]
             event_metadata=event_metadata[event_test_mask]
@@ -342,6 +342,7 @@ class multiple_station_dataset_new(Dataset):
 
 # specific_index=Events_index[400]
         self.data_path=data_path
+        self.mode=mode
         self.event_metadata=event_metadata
         self.trace_metadata=trace_metadata
         self.ok_events_index=ok_events_index
@@ -369,22 +370,27 @@ class multiple_station_dataset_new(Dataset):
                     stations_location=[]
                     pga_targets_location=[]
                     pga_labels=[]
+                    seen_P_picks=[]
+                    PGA_time=[]
                     P_picks=[]
                     for eventID in specific_index[0]: #trace waveform
                         waveform=f['data'][str(eventID[0])]["traces"][eventID[1]]
-                        p_pick=f['data'][str(eventID[0])]["p_picks"][eventID[1]]
                         station_location=f['data'][str(eventID[0])]["station_location"][eventID[1]]
                         waveform=np.pad(waveform,((0,self.data_length_sec*self.sampling_rate-len(waveform)),(0,0)),"constant")
-                        pga=np.array(f['data'][str(eventID[0])]["pga"][eventID[1]]).reshape(1,1)
+                        p_pick=f['data'][str(eventID[0])]["p_picks"][eventID[1]]
                         specific_waveforms.append(waveform)
                         # print(f"first {waveform.shape}")
                         stations_location.append(station_location)
-                        P_picks.append(p_pick)
+                        seen_P_picks.append(p_pick)
                     for eventID in specific_index[1]: #target postion & pga
                         station_location=f['data'][str(eventID[0])]["station_location"][eventID[1]]
                         pga=np.array(f['data'][str(eventID[0])]["pga"][eventID[1]]).reshape(1,1)
+                        p_pick=f['data'][str(eventID[0])]["p_picks"][eventID[1]]
+                        pga_time=f['data'][str(eventID[0])]["pga_time"][eventID[1]]
                         pga_targets_location.append(station_location)
                         pga_labels.append(pga)
+                        P_picks.append(p_pick)
+                        PGA_time.append(pga_time)
                     if len(stations_location)<self.max_station_num: #triggered station < max_station_number (default:25) zero padding
                         for zero_pad_num in range(self.max_station_num-len(stations_location)):
                             # print(f"second {waveform.shape}")
@@ -397,16 +403,19 @@ class multiple_station_dataset_new(Dataset):
                             pga_labels.append(np.zeros_like(pga))
                     Specific_waveforms=np.array(specific_waveforms)
                     if self.mask_waveform_sec:
-                        Specific_waveforms[:,P_picks[0]+(self.mask_waveform_sec*self.sampling_rate):,:]=0
-                        for i in range(len(P_picks)):
-                            if P_picks[i]>P_picks[0]+(self.mask_waveform_sec*self.sampling_rate):
+                        Specific_waveforms[:,seen_P_picks[0]+(self.mask_waveform_sec*self.sampling_rate):,:]=0
+                        for i in range(len(seen_P_picks)):
+                            if seen_P_picks[i]>seen_P_picks[0]+(self.mask_waveform_sec*self.sampling_rate):
                                 Specific_waveforms[i,:,:]=0
                     Stations_location=np.array(stations_location)
                     PGA_targets_location=np.array(pga_targets_location)
                     PGA_labels=np.array(pga_labels)
                     P_picks=np.array(P_picks)
-        return Specific_waveforms,Stations_location,PGA_targets_location,PGA_labels          
-        # return Specific_waveforms,Stations_location,PGA_targets_location,PGA_labels,P_picks,specific_index[0]
+                    PGA_time=np.array(PGA_time)
+        if self.mode=="train":
+            return Specific_waveforms,Stations_location,PGA_targets_location,PGA_labels
+        else:          
+            return Specific_waveforms,Stations_location,PGA_targets_location,PGA_labels,P_picks,specific_index[0],PGA_time
 
 # full_data=multiple_station_dataset("D:/TEAM_TSMIP/data/TSMIP_new.hdf5",train_mode=True,mask_waveform_sec=3,oversample=1.5)   
 # batch_size=16

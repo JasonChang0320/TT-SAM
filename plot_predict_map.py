@@ -206,4 +206,4 @@ def true_predicted(y_true, y_pred, time, agg='mean', quantile=True, ms=None,
             max(np.max(y_pred_point), limits[1]), f"$R^2={r2:.2f}$", va='top',fontsize=axis_fontsize-5)
 
     # return ax, cbar
-    return fig
+    return fig,ax

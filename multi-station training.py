@@ -27,7 +27,7 @@ def train_process(full_Model,optimizer,hyper_param,num_of_gaussian=5,train_data_
         cudnn.benchmark = True
         # full_data=multiple_station_dataset("D:/TEAM_TSMIP/data/TSMIP_new.hdf5",train_mode=True,oversample=1.5,
         #                                         mask_waveform_sec=3,test_year=2018) 
-        full_data=multiple_station_dataset_new("D:/TEAM_TSMIP/data/TSMIP_new.hdf5",train_mode=True,mask_waveform_sec=3,
+        full_data=multiple_station_dataset_new("D:/TEAM_TSMIP/data/TSMIP_new.hdf5",mode="train",mask_waveform_sec=3,
                                                 trigger_station_threshold=1,oversample=1.5) 
 
         train_set_size = int(len(full_data) * train_data_size)
