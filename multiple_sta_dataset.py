@@ -240,7 +240,7 @@ import pandas as pd
 
 class multiple_station_dataset_new(Dataset):
     def __init__(self,data_path,sampling_rate=200,data_length_sec=30,test_year=2018,mode="train",limit=None,
-                        label_key="pga",mask_waveform_sec=None,oversample=1,oversample_mag=4,
+                        label_key="pga",mask_waveform_sec=None,mask_waveform_random=False,oversample=1,oversample_mag=4,
                         max_station_num=25,pga_target=25,sort_by_picks=True,trigger_station_threshold=3,mag_threshold=0
                         ):
         event_metadata = pd.read_hdf(data_path, 'metadata/event_metadata')
@@ -356,6 +356,7 @@ class multiple_station_dataset_new(Dataset):
         self.max_station_num=max_station_num
         self.pga_target=pga_target
         self.mask_waveform_sec=mask_waveform_sec
+        self.mask_waveform_random=mask_waveform_random
         self.trigger_station_threshold=trigger_station_threshold
     def __len__(self):
 
@@ -402,7 +403,13 @@ class multiple_station_dataset_new(Dataset):
                             pga_targets_location.append(np.zeros_like(station_location))
                             pga_labels.append(np.zeros_like(pga))
                     Specific_waveforms=np.array(specific_waveforms)
-                    if self.mask_waveform_sec:
+                    if self.mask_waveform_random:
+                        random_mask_sec=np.random.randint(self.mask_waveform_sec,10)
+                        Specific_waveforms[:,seen_P_picks[0]+(random_mask_sec*self.sampling_rate):,:]=0
+                        for i in range(len(seen_P_picks)):
+                            if seen_P_picks[i]>seen_P_picks[0]+(random_mask_sec*self.sampling_rate):
+                                Specific_waveforms[i,:,:]=0
+                    elif self.mask_waveform_sec:
                         Specific_waveforms[:,seen_P_picks[0]+(self.mask_waveform_sec*self.sampling_rate):,:]=0
                         for i in range(len(seen_P_picks)):
                             if seen_P_picks[i]>seen_P_picks[0]+(self.mask_waveform_sec*self.sampling_rate):
@@ -415,9 +422,10 @@ class multiple_station_dataset_new(Dataset):
         if self.mode=="train":
             return Specific_waveforms,Stations_location,PGA_targets_location,PGA_labels
         else:          
-            return Specific_waveforms,Stations_location,PGA_targets_location,PGA_labels,P_picks,specific_index[0],PGA_time
+            return Specific_waveforms,Stations_location,PGA_targets_location,PGA_labels,P_picks,specific_index[0],PGA_time,Sta_name
 
-# full_data=multiple_station_dataset("D:/TEAM_TSMIP/data/TSMIP_new.hdf5",train_mode=True,mask_waveform_sec=3,oversample=1.5)   
+# full_data=multiple_station_dataset_new("D:/TEAM_TSMIP/data/TSMIP_new.hdf5",mode="train",mask_waveform_sec=3,
+#                                                 trigger_station_threshold=1,oversample=1.5,mask_waveform_random=True) 
 # batch_size=16
 # loader=DataLoader(dataset=full_data,batch_size=batch_size,shuffle=True)
 # a=0

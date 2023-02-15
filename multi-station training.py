@@ -17,7 +17,7 @@ from multiple_sta_dataset import (multiple_station_dataset,
 
 
 def train_process(full_Model,optimizer,hyper_param,num_of_gaussian=5,train_data_size=0.8):
-    experiment = mlflow.get_experiment_by_name("1991-2020 updated_dataset 3 sec")
+    experiment = mlflow.get_experiment_by_name("1991-2020 updated_dataset 3~10 sec")
     with mlflow.start_run(run_name="TSMIP_EEW",experiment_id=experiment.experiment_id) as run:
         log_params({"epochs":hyper_param["num_epochs"],
                     "batch size":hyper_param["batch_size"],
@@ -28,7 +28,7 @@ def train_process(full_Model,optimizer,hyper_param,num_of_gaussian=5,train_data_
         # full_data=multiple_station_dataset("D:/TEAM_TSMIP/data/TSMIP_new.hdf5",train_mode=True,oversample=1.5,
         #                                         mask_waveform_sec=3,test_year=2018) 
         full_data=multiple_station_dataset_new("D:/TEAM_TSMIP/data/TSMIP_new.hdf5",mode="train",mask_waveform_sec=3,
-                                                trigger_station_threshold=1,oversample=1.5) 
+                                                trigger_station_threshold=1,oversample=1.5,mask_waveform_random=True) 
 
         train_set_size = int(len(full_data) * train_data_size)
         valid_set_size = len(full_data) - train_set_size
@@ -134,7 +134,7 @@ if __name__ == '__main__':
     num_epochs=100
     # batch_size=16
     for batch_size in [16,32]:
-        for LR in [1e-5,5e-5,1e-4]:
+        for LR in [5e-5]:
             for i in range(5):
                 model_index+=1
                 hyper_param={

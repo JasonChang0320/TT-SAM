@@ -4,10 +4,10 @@ import pandas as pd
 import seaborn as sn
 from sklearn.metrics import confusion_matrix
 
-path="./predict/3 sec updated dataset and new data generator/ok model prediction"
+path="./predict/random sec updated dataset and new data generator/ok model prediction"
 mask_after_sec=10
 trigger_station_threshold=1
-data=pd.read_csv(f"{path}/model1 3 18 20 {mask_after_sec} sec {trigger_station_threshold} triggered station prediction.csv")
+data=pd.read_csv(f"{path}/model2 7 9 {mask_after_sec} sec {trigger_station_threshold} triggered station prediction.csv")
 
 
 predict_pga=(data["predict"])
@@ -64,7 +64,7 @@ sec7_table=pd.read_csv(f"{path}/confusion matrix/7 sec confustion matrix table.c
 sec10_table=pd.read_csv(f"{path}/confusion matrix/10 sec confustion matrix table.csv")
 
 fig,ax=plt.subplots(2,2,figsize=(14,14))
-PGA_threshold=[0.02,0.025,0.05,0.1]
+PGA_threshold=[0.01,0.02,0.025,0.05]
 plot_index=[[0,0],[0,1],[1,0],[1,1]]
 for index,pga_threshold in zip(plot_index,PGA_threshold):
     Accuracy=[];Precision=[];Recall=[];F1_score=[]
@@ -83,6 +83,6 @@ for index,pga_threshold in zip(plot_index,PGA_threshold):
     ax[index[0],index[1]].set_xticklabels(["3","5","7","10"])
     ax[index[0],index[1]].set_xlabel("After first triggered station (sec)")
     ax[index[0],index[1]].set_ylim(0.2,1)
-ax[index[0],index[1]].legend()
+    ax[index[0],index[1]].legend()
 fig.savefig(f"{path}/confusion matrix/different pga threshold performance by time.png")
 

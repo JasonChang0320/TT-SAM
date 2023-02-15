@@ -21,7 +21,7 @@ data=multiple_station_dataset_new("D:/TEAM_TSMIP/data/TSMIP_new.hdf5",mode="test
                                     trigger_station_threshold=trigger_station_threshold,mag_threshold=0)
 #=========================
 device = torch.device('cuda')
-for num in [1,3,18,20]:
+for num in [2,7,9]:#[1,3,18,20]
     path=f"./model/model{num}.pt"
     emb_dim=150
     mlp_dims=(150, 100, 50, 30, 10)
@@ -39,14 +39,28 @@ for num in [1,3,18,20]:
     P_picks=[]
     EQ_ID=[]
     PGA_time=[]
+    Sta_name=[]
+    Lat=[]
+    Lon=[]
+    Elev=[]
     for j,sample in tqdm(enumerate(loader)):
 
         picks=sample[4].flatten().numpy().tolist()
         pga_time=sample[6].flatten().numpy().tolist()
+        sta_name=sample[7].flatten().numpy().tolist()
+        lat=sample[2][:,:,0].flatten().tolist()
+        lon=sample[2][:,:,1].flatten().tolist()
+        elev=sample[2][:,:,2].flatten().tolist()
         P_picks.extend(picks)
         P_picks.extend([np.nan]*(25-len(picks)))
         PGA_time.extend(pga_time)
         PGA_time.extend([np.nan]*(25-len(pga_time)))
+        Sta_name.extend(sta_name)
+        Sta_name.extend([np.nan]*(25-len(sta_name)))
+        Lat.extend(lat)
+        Lon.extend(lon)
+        Elev.extend(elev)
+        
         eq_id=sample[5][:,:,0].flatten().numpy().tolist()
         EQ_ID.extend(sample[5][:,:,0].flatten().numpy().tolist())
         EQ_ID.extend([np.nan]*(25-len(eq_id)))
@@ -64,10 +78,11 @@ for num in [1,3,18,20]:
     PGA=PGA.flatten()
     Mixture_mu=Mixture_mu.flatten()
 
-    output={"EQ_ID":EQ_ID,"p_picks":P_picks,"pga_time":PGA_time,"predict":Mixture_mu,"answer":PGA}
+    output={"EQ_ID":EQ_ID,"p_picks":P_picks,"pga_time":PGA_time,
+            "predict":Mixture_mu,"answer":PGA,"sta_name":Sta_name,"latitude":Lat,"longitude":Lon,"elevation":Elev}
     output_df=pd.DataFrame(output)
     output_df=output_df[output_df["answer"]!=0]
-    output_df.to_csv(f"./predict/model{num} {mask_after_sec} sec {trigger_station_threshold} triggered station prediction.csv",index=False)
+    # output_df.to_csv(f"./predict/model{num} {mask_after_sec} sec {trigger_station_threshold} triggered station prediction.csv",index=False)
     fig,ax=true_predicted(y_true=output_df["answer"],y_pred=output_df["predict"],
                     time=mask_after_sec,quantile=False,agg="point", point_size=12)
 
@@ -85,26 +100,30 @@ for i in range(0,len(input_waveform_picks)):
 fig=true_predicted(y_true=output_df["answer"][output_df["EQ_ID"]==27558],y_pred=output_df["predict"][output_df["EQ_ID"]==27558],
                 time=mask_after_sec,quantile=False,agg="point", point_size=12)
 
+#ensemble model prediction
 mask_after_sec=10
-data1=pd.read_csv(f"predict/model1 {mask_after_sec} sec 1 triggered station prediction.csv")
-data2=pd.read_csv(f"predict/model3 {mask_after_sec} sec 1 triggered station prediction.csv")
-data3=pd.read_csv(f"predict/model18 {mask_after_sec} sec 1 triggered station prediction.csv")
-data4=pd.read_csv(f"predict/model20 {mask_after_sec} sec 1 triggered station prediction.csv")
+trigger_station_threshold=1
+data1=pd.read_csv(f"predict/random sec updated dataset and new data generator/model2 {mask_after_sec} sec 1 triggered station prediction.csv")
+data2=pd.read_csv(f"predict/random sec updated dataset and new data generator/model7 {mask_after_sec} sec 1 triggered station prediction.csv")
+data3=pd.read_csv(f"predict/random sec updated dataset and new data generator/model9 {mask_after_sec} sec 1 triggered station prediction.csv")
 
-output_df=(data1+data2+data3+data4)/4
-fig=true_predicted(y_true=output_df["answer"],y_pred=output_df["predict"],
+output_df=(data1+data2+data3)/3
+fig,ax=true_predicted(y_true=output_df["answer"],y_pred=output_df["predict"],
                 time=mask_after_sec,quantile=False,agg="point", point_size=12)
 
-output_df.to_csv(f"./predict/model1 3 18 20 {mask_after_sec} sec {trigger_station_threshold} triggered station prediction.csv",index=False)
+output_df.to_csv(f"./predict/model2 7 9 {mask_after_sec} sec {trigger_station_threshold} triggered station prediction.csv",index=False)
 
-output_df=(data1+data2+data3+data4)/4
-for eq_id in data.event_metadata["EQ_ID"]:
-    fig,ax=true_predicted(y_true=output_df["answer"][output_df["EQ_ID"]==eq_id],y_pred=output_df["predict"][output_df["EQ_ID"]==eq_id],
-                    time=mask_after_sec,quantile=False,agg="point", point_size=70)
-    magnitude=data.event_metadata[data.event_metadata["EQ_ID"]==eq_id]["magnitude"].values[0]
-    ax.set_title(f"{mask_after_sec}s True Predict Plot, EQ ID:{eq_id}, magnitude: {magnitude}",fontsize=20)
-    plt.close()
-    fig.savefig(f"./predict/updated dataset plot each event {mask_after_sec} sec/EQ ID_{eq_id} magnitude_{magnitude}.png")
+fig.savefig(f"./predict/model2 7 9 {mask_after_sec} sec {trigger_station_threshold} triggered station.png")
+
+#plot each events prediction
+# output_df=(data1+data2+data3)/3
+# for eq_id in data.event_metadata["EQ_ID"]:
+#     fig,ax=true_predicted(y_true=output_df["answer"][output_df["EQ_ID"]==eq_id],y_pred=output_df["predict"][output_df["EQ_ID"]==eq_id],
+#                     time=mask_after_sec,quantile=False,agg="point", point_size=70)
+#     magnitude=data.event_metadata[data.event_metadata["EQ_ID"]==eq_id]["magnitude"].values[0]
+#     ax.set_title(f"{mask_after_sec}s True Predict Plot, EQ ID:{eq_id}, magnitude: {magnitude}",fontsize=20)
+#     plt.close()
+#     fig.savefig(f"./predict/random sec updated dataset and new data generator/ok model prediction/updated dataset plot each event {mask_after_sec} sec/EQ ID_{eq_id} magnitude_{magnitude}.png")
 
 
 
