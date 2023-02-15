@@ -1,14 +1,16 @@
 import bisect
 import os
 
-# import cartopy
-# import cartopy.crs as ccrs
+import cartopy
+import cartopy.crs as ccrs
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import shapely.geometry as sgeom
 import sklearn.metrics as metrics
-# from cartopy.mpl import ticker
+from cartopy.geodesic import Geodesic
+from cartopy.mpl import ticker
 from scipy.interpolate import griddata
 
 
@@ -47,11 +49,12 @@ class TaiwanIntensity:
 
 
 def plot_pga_map(trace_info=None, eventmeta=None, true_pga=None, pred_pga=None,
-                 center=None, pad=None, sec=None, title=None, output_dir=None):
+                 center=None, pad=None, sec=None, title=None, output_dir=None,
+                 EQ_ID=None,grid_method="linear",Pwave_vel=6.5,Swave_vel=3.5):
     intensity = TaiwanIntensity()
-
+    src_crs = ccrs.PlateCarree()
     fig, ax_map = plt.subplots(
-        subplot_kw={'projection': ccrs.PlateCarree()},
+        subplot_kw={'projection': src_crs},
         figsize=(7, 7)
     )
 
@@ -77,8 +80,8 @@ def plot_pga_map(trace_info=None, eventmeta=None, true_pga=None, pred_pga=None,
     xi, yi = np.meshgrid(xi, yi)
 
     grid_pred = griddata((trace_info["longitude"], trace_info["latitude"]), pred_pga,
-                         (xi, yi), method='linear')
-    ax_map.add_feature(cartopy.feature.OCEAN, zorder=2, edgecolor='k')
+                         (xi, yi), method=grid_method)
+    ax_map.add_feature(cartopy.feature.OCEAN, zorder=2, edgecolor='k') # zorder越大的圖層 越上面
     ax_map.contourf(xi, yi, grid_pred, cmap=cmap, norm=norm, zorder=1)
 
     sta = ax_map.scatter(trace_info["longitude"],
@@ -92,8 +95,8 @@ def plot_pga_map(trace_info=None, eventmeta=None, true_pga=None, pred_pga=None,
                          s=30,
                          zorder=3,
                          label='True Intensity')
-    event_lon = eventmeta['Longitude']
-    event_lat = eventmeta['Latitude']
+    event_lon = eventmeta['longitude']
+    event_lat = eventmeta['latitude']
     ax_map.scatter(event_lon,
                    event_lat,
                    color='red',
@@ -103,9 +106,16 @@ def plot_pga_map(trace_info=None, eventmeta=None, true_pga=None, pred_pga=None,
                    s=500,
                    zorder=10,
                    label='Epicenter')
+    gd = Geodesic()
+    geoms = []
+    for wave_velocity in [Pwave_vel,Swave_vel]:
+        radius=(trace_info["epdis (km)"][trace_info["p_picks"]==trace_info["p_picks"].min()].values[0]+sec*wave_velocity)*1000
+        cp = gd.circle(lon=event_lon, lat=event_lat, radius=radius)
+        geoms.append(sgeom.Polygon(cp))
+    ax_map.add_geometries(geoms,crs=src_crs,edgecolor=["k","r"],color=["grey","red"],alpha=0.2,zorder=2.5)
     ax_map.text(event_lon + 0.15,
                 event_lat,
-                f"M{eventmeta['Magnitude'].values[0]}",
+                f"M{eventmeta['magnitude'].values[0]}",
                 va='center',
                 zorder=11)
     xmin, xmax = ax_map.get_xlim()
@@ -140,7 +150,7 @@ def plot_pga_map(trace_info=None, eventmeta=None, true_pga=None, pred_pga=None,
     if title:
         ax_map.set_title(title)
     else:
-        ax_map.set_title(f'{sec}s Italy Dataset Predicted PGA Intensity Map')
+        ax_map.set_title(f'EQ ID: {EQ_ID} {sec} sec Predicted PGA Intensity Map')
     cbar = plt.colorbar(sta, extend='both')
     cbar.set_ticks(intensity.pga_ticks)
     cbar.set_ticklabels(intensity.label)
