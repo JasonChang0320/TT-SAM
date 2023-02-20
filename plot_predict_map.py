@@ -4,9 +4,9 @@ import os
 import cartopy
 import cartopy.crs as ccrs
 import matplotlib as mpl
+import matplotlib.colors
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
 import shapely.geometry as sgeom
 import sklearn.metrics as metrics
 from cartopy.geodesic import Geodesic
@@ -92,7 +92,7 @@ def plot_pga_map(trace_info=None, eventmeta=None, true_pga=None, pred_pga=None,
                          edgecolors='k',
                          linewidth=1,
                          marker='o',
-                         s=30,
+                         s=20,
                          zorder=3,
                          label='True Intensity')
     event_lon = eventmeta['longitude']
@@ -164,8 +164,131 @@ def plot_pga_map(trace_info=None, eventmeta=None, true_pga=None, pred_pga=None,
     else:
         plt.show()
 
+def warning_map(trace_info=None,eventmeta=None,EQ_ID=None,sec=None,
+                        pga_threshold=None,title=None,Pwave_vel=6.5,Swave_vel=3.5):
+    true_warn_filter=((trace_info["predict"]>pga_threshold) & ((trace_info["answer"]>pga_threshold)))
+    true_not_warn_filter=((trace_info["predict"]<=pga_threshold) & ((trace_info["answer"]<=pga_threshold)))
+    loss_warn_filter=((trace_info["predict"]<=pga_threshold) & ((trace_info["answer"]>pga_threshold)))
+    wrong_warn_filter=((trace_info["predict"]>pga_threshold) & ((trace_info["answer"]<=pga_threshold)))
+    predict_filter=[true_not_warn_filter,loss_warn_filter,wrong_warn_filter]
+
+
+    title=f"EQ_ID: {EQ_ID}, {sec} sec performance, warning threshold: VI"
+    src_crs = ccrs.PlateCarree()
+    fig, ax_map = plt.subplots(
+        subplot_kw={'projection': src_crs},
+        figsize=(7, 7)
+    )
+
+    ax_map.coastlines('10m')
+
+    numcols, numrows = 100,200
+    xi = np.linspace(min(trace_info["longitude"]), max(trace_info["longitude"]), numcols)
+    yi = np.linspace(min(trace_info["latitude"]), max(trace_info["latitude"]), numrows)
+    xi, yi = np.meshgrid(xi, yi)
+
+    ax_map.add_feature(cartopy.feature.OCEAN, zorder=2, edgecolor='k') # zorder越大的圖層 越上面
+
+    sta_num=len(trace_info[true_warn_filter])
+    warning_time=trace_info[true_warn_filter]["pga_time"]/200-(sec+5)
+
+    cvals  = [0,warning_time.mean(),  warning_time.max()]
+    colors = ["white","orange","red"]
+
+    if warning_time.min() < 0:
+        cvals  = [warning_time.min(), 0,  warning_time.max()]
+        colors = ["purple","white","red"]
+
+    norm=plt.Normalize(min(cvals),max(cvals))
+    tuples = list(zip(map(norm,cvals), colors))
+    cmap = matplotlib.colors.LinearSegmentedColormap.from_list("", tuples)
+
+    warn_sta = ax_map.scatter(trace_info[true_warn_filter]["longitude"],
+                            trace_info[true_warn_filter]["latitude"],
+                            c=warning_time,
+                            norm=norm,
+                            cmap=cmap,
+                            edgecolors='k',
+                            linewidth=1,
+                            marker='o',
+                            s=30,
+                            zorder=3,
+                            label=f"TP: {sta_num}",
+                            alpha=0.7)
+
+    for filter,color,label,marker in zip(predict_filter,["#009ACD","green","purple"],["TN","FN","FP"],["o","^","^"]):
+        sta_num=len(trace_info[filter])
+        sta = ax_map.scatter(trace_info[filter]["longitude"],
+                                trace_info[filter]["latitude"],
+                                c=color,
+                                edgecolors='k',
+                                linewidth=1,
+                                marker=marker,
+                                s=30,
+                                zorder=3,
+                                label=f"{label}: {sta_num}",
+                                alpha=0.7)
+
+    event_lon = eventmeta['longitude']
+    event_lat = eventmeta['latitude']
+    ax_map.scatter(event_lon,
+                    event_lat,
+                    color='red',
+                    edgecolors='k',
+                    linewidth=1,
+                    marker='*',
+                    s=500,
+                    zorder=10,
+                    label='Epicenter')
+    gd = Geodesic()
+    geoms = []
+    for wave_velocity in [Pwave_vel,Swave_vel]:
+        radius=(trace_info["epdis (km)"][trace_info["p_picks"]==trace_info["p_picks"].min()].values[0]+sec*wave_velocity)*1000
+        cp = gd.circle(lon=event_lon, lat=event_lat, radius=radius)
+        geoms.append(sgeom.Polygon(cp))
+    ax_map.add_geometries(geoms,crs=src_crs,edgecolor=["k","r"],color=["grey","red"],alpha=0.2,zorder=2.5)
+    ax_map.text(event_lon + 0.15,
+                event_lat,
+                f"M{eventmeta['magnitude'].values[0]}",
+                va='center',
+                zorder=11)
+    xmin, xmax = ax_map.get_xlim()
+    ymin, ymax = ax_map.get_ylim()
+
+    if xmax - xmin > ymax - ymin:  # check if square
+        ymin = (ymax + ymin) / 2 - (xmax - xmin) / 2
+        ymax = (ymax + ymin) / 2 + (xmax - xmin) / 2
+    else:
+        xmin = (xmax + xmin) / 2 - (ymax - ymin) / 2
+        xmax = (xmax + xmin) / 2 + (ymax - ymin) / 2
+
+    xticks = ticker.LongitudeLocator(nbins=5)._raw_ticks(xmin, xmax)
+    yticks = ticker.LatitudeLocator(nbins=5)._raw_ticks(ymin, ymax)
+
+    ax_map.set_xticks(xticks, crs=ccrs.PlateCarree())
+    ax_map.set_yticks(yticks, crs=ccrs.PlateCarree())
+
+    ax_map.xaxis.set_major_formatter(
+        ticker.LongitudeFormatter(zero_direction_label=True))
+    ax_map.yaxis.set_major_formatter(ticker.LatitudeFormatter())
+
+    ax_map.xaxis.set_ticks_position('both')
+    ax_map.yaxis.set_ticks_position('both')
+
+    ax_map.set_xlim(xmin, xmax)
+    ax_map.set_ylim(ymin, ymax)
+    ax_map.legend()
+    if title:
+        ax_map.set_title(title)
+    else:
+        ax_map.set_title(f"EQ_ID: {EQ_ID}, {sec} sec performance, warning threshold: VI")
+    cbar = plt.colorbar(warn_sta, extend='both')
+    cbar.set_label('Warning time (sec)')
+
+    return fig,ax_map
+
 def true_predicted(y_true, y_pred, time, agg='mean', quantile=True, ms=None,
-                   ax=None,axis_fontsize=20,point_size=2):
+                   ax=None,axis_fontsize=20,point_size=2,target="y"):
     if ax is None:
         fig = plt.figure(figsize=(10, 10))
         ax = fig.add_subplot(111)
@@ -203,8 +326,8 @@ def true_predicted(y_true, y_pred, time, agg='mean', quantile=True, ms=None,
     for i, label in zip(intensity.pga_ticks[2:-2], intensity.label[2:-2]):
         ax.text(i, limits[0], label, va='bottom',fontsize=axis_fontsize-7)
 
-    ax.set_xlabel('$y_{true}  \log(m/s^2)$',fontsize=axis_fontsize)
-    ax.set_ylabel('$y_{pred}  \log(m/s^2)$',fontsize=axis_fontsize)
+    ax.set_xlabel(f"ture_{target} log(m/s^2)",fontsize=axis_fontsize)
+    ax.set_ylabel(f"predicted_{target} log(m/s^2)",fontsize=axis_fontsize)
     ax.set_title(f'{time}s True Predict Plot',fontsize=axis_fontsize+5)
     ax.tick_params(axis='x', labelsize= axis_fontsize-5)
     ax.tick_params(axis='y', labelsize= axis_fontsize-5)

@@ -1,10 +1,11 @@
 import h5py
+import numpy as np
 import pandas as pd
 
-from plot_predict_map import plot_pga_map
+from plot_predict_map import plot_pga_map, warning_map
 
 mask_after_sec=3
-EQ_ID=27558
+EQ_ID=27305
 trigger_station_threshold=1
 path="./predict/random sec updated dataset and new data generator/ok model prediction"
 Afile_path="data/Afile"
@@ -34,3 +35,7 @@ dataset.close()
 plot_pga_map(trace_info=event_prediction,eventmeta=event,
             true_pga=event_prediction["answer"],pred_pga=event_prediction["predict"],
             sec=mask_after_sec,EQ_ID=EQ_ID,grid_method="linear",pad=100)
+
+pga_threshold=np.log10(9.8*0.025)
+warning_map(trace_info=event_prediction,eventmeta=event,EQ_ID=EQ_ID,sec=mask_after_sec,
+                        pga_threshold=pga_threshold)
