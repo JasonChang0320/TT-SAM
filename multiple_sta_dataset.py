@@ -422,7 +422,7 @@ class multiple_station_dataset_new(Dataset):
         if self.mode=="train":
             return Specific_waveforms,Stations_location,PGA_targets_location,PGA_labels
         else:          
-            return Specific_waveforms,Stations_location,PGA_targets_location,PGA_labels,P_picks,specific_index[0],PGA_time,Sta_name
+            return Specific_waveforms,Stations_location,PGA_targets_location,PGA_labels,P_picks,specific_index[0],PGA_time
 
 # full_data=multiple_station_dataset_new("D:/TEAM_TSMIP/data/TSMIP_new.hdf5",mode="train",mask_waveform_sec=3,
 #                                                 trigger_station_threshold=1,oversample=1.5,mask_waveform_random=True) 
