@@ -13,7 +13,7 @@ data=pd.read_csv(f"{path}/model2 7 9 {mask_after_sec} sec {trigger_station_thres
 predict_pga=(data["predict"])
 real_pga=data["answer"]
 
-PGA_threshold=np.log10(9.8*np.array([0.01,0.02,0.025,0.05,0.1])) # g*9.8 = m/s^2
+PGA_threshold=np.log10(9.8*np.array([0.01,0.02,0.025,0.05,0.08,0.1])) # g*9.8 = m/s^2
 performance_score={"pga_threshold (g)":[],"confusion matrix":[],"accuracy":[],
                    "precision":[],"recall":[],"f1_score":[]}
 for pga_threshold in PGA_threshold:
@@ -64,7 +64,7 @@ sec7_table=pd.read_csv(f"{path}/confusion matrix/7 sec confustion matrix table.c
 sec10_table=pd.read_csv(f"{path}/confusion matrix/10 sec confustion matrix table.csv")
 
 fig,ax=plt.subplots(2,2,figsize=(14,14))
-PGA_threshold=[0.01,0.02,0.025,0.05]
+PGA_threshold=[0.01,0.02,0.025,0.08]
 plot_index=[[0,0],[0,1],[1,0],[1,1]]
 for index,pga_threshold in zip(plot_index,PGA_threshold):
     Accuracy=[];Precision=[];Recall=[];F1_score=[]

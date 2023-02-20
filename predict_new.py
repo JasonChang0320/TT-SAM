@@ -101,7 +101,7 @@ fig=true_predicted(y_true=output_df["answer"][output_df["EQ_ID"]==27558],y_pred=
                 time=mask_after_sec,quantile=False,agg="point", point_size=12)
 
 #ensemble model prediction
-mask_after_sec=10
+mask_after_sec=3
 trigger_station_threshold=1
 data1=pd.read_csv(f"predict/random sec updated dataset and new data generator/model2 {mask_after_sec} sec 1 triggered station prediction.csv")
 data2=pd.read_csv(f"predict/random sec updated dataset and new data generator/model7 {mask_after_sec} sec 1 triggered station prediction.csv")
@@ -109,7 +109,7 @@ data3=pd.read_csv(f"predict/random sec updated dataset and new data generator/mo
 
 output_df=(data1+data2+data3)/3
 fig,ax=true_predicted(y_true=output_df["answer"],y_pred=output_df["predict"],
-                time=mask_after_sec,quantile=False,agg="point", point_size=12)
+                time=mask_after_sec,quantile=False,agg="point", point_size=12,target="PGA")
 
 output_df.to_csv(f"./predict/model2 7 9 {mask_after_sec} sec {trigger_station_threshold} triggered station prediction.csv",index=False)
 
