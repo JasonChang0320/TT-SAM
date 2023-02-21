@@ -7,6 +7,7 @@ import matplotlib as mpl
 import matplotlib.colors
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import shapely.geometry as sgeom
 import sklearn.metrics as metrics
 from cartopy.geodesic import Geodesic
@@ -340,3 +341,68 @@ def true_predicted(y_true, y_pred, time, agg='mean', quantile=True, ms=None,
 
     # return ax, cbar
     return fig,ax
+
+def warning_time_hist(prediction=None,catalog=None,mask_after_sec=None,EQ_ID=None,warning_mag_threshold=None,bins=20,
+                    pga_threshold=np.log10(9.8*0.025),sampling_rate=200,first_pick_sec=5):
+
+    prediction=pd.merge(prediction,catalog,how="left",on="EQ_ID")
+    warning_time_filter=(prediction["pga_time"]>(first_pick_sec+mask_after_sec)*sampling_rate)
+    magnitude_filter=(prediction["magnitude"]>=warning_mag_threshold)
+
+    prediction_for_warning=prediction[warning_time_filter & magnitude_filter]
+
+    warning_time=(prediction_for_warning["pga_time"]-((first_pick_sec+mask_after_sec)*sampling_rate))/sampling_rate
+    prediction_for_warning.insert(5, "warning_time (sec)", warning_time)
+
+    if EQ_ID:
+        eq_id_filter=(prediction_for_warning["EQ_ID"]==EQ_ID)
+        prediction_for_warning=prediction_for_warning[eq_id_filter]
+
+    true_predict_filter=((prediction_for_warning["predict"]>pga_threshold) & ((prediction_for_warning["answer"]>pga_threshold)))
+    positive_filter=(prediction_for_warning["predict"]>pga_threshold)
+    true_filter=(prediction_for_warning["answer"]>pga_threshold)
+
+
+    fig,ax=plt.subplots(figsize=(7,7))
+    ax.hist(prediction_for_warning[true_predict_filter]["warning_time (sec)"],bins=bins,ec='black')
+    describe=prediction_for_warning[true_predict_filter]["warning_time (sec)"].describe()
+    count=int(describe["count"])
+    mean=np.round(describe["mean"],2)
+    std=np.round(describe["std"],2)
+    median=np.round(describe["50%"],2)
+    max=np.round(describe["max"],2)
+    precision=np.round(len(prediction_for_warning[true_predict_filter])/len(prediction_for_warning[positive_filter]),2)
+    recall=np.round(len(prediction_for_warning[true_predict_filter])/len(prediction_for_warning[true_filter]),2)
+    if EQ_ID:
+        ax.set_title(f"Warning time in EQ ID: {EQ_ID}, \n after first triggered station {mask_after_sec} sec",fontsize=18)
+    else:
+        ax.set_title(f"Warning time\n after first triggered station {mask_after_sec} sec",fontsize=18)
+    ax.set_xlabel("Warning time (sec)",fontsize=15)
+    ax.set_ylabel("Number of stations",fontsize=15)
+    ax.text(0.45, .7,
+            f"mean: {mean} s\nstd: {std} s\nmedian: {median}s\nmax: {max} s\neffective warning stations: {count}\nprecision: {precision}\nrecall: {recall}", 
+            transform=ax.transAxes,fontsize=14)
+    ax.xaxis.set_tick_params(labelsize=12)
+    ax.yaxis.set_tick_params(labelsize=12)
+    return fig,ax
+
+def correct_warning_with_epidist(event_prediction=None,mask_after_sec=None,
+                                pga_threshold=np.log10(9.8*0.025),sampling_rate=200,first_pick_sec=5):
+    EQ_ID=int(event_prediction["EQ_ID"][0])
+    fig,ax= plt.subplots()
+    true_warning_prediction=event_prediction.query(f"predict > {pga_threshold} and answer > {pga_threshold}")
+    pga_time=true_warning_prediction["pga_time"]/sampling_rate-first_pick_sec
+    pick_time=true_warning_prediction["p_picks"]/sampling_rate-first_pick_sec
+    ax.scatter(true_warning_prediction["epdis (km)"],pga_time,label="pga_time")
+    ax.scatter(true_warning_prediction["epdis (km)"],pick_time,label="P arrival")
+    ax.axhline(y=mask_after_sec,xmax=true_warning_prediction["epdis (km)"].max()+10,linestyle="dashed",c="r",label="warning")
+    ax.legend()
+    for index in true_warning_prediction["epdis (km)"].index:
+        distance=[true_warning_prediction["epdis (km)"][index],
+                    true_warning_prediction["epdis (km)"][index]]
+        time=[pga_time[index],pick_time[index]]
+        ax.plot(distance,time,c="grey")
+    ax.set_title(f"EQ ID: {EQ_ID} Warning time")
+    ax.set_xlabel("epicentral distance (km)")
+    ax.set_ylabel("time (sec)")
+    return fig, ax
