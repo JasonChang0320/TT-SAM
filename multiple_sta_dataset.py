@@ -421,8 +421,11 @@ class multiple_station_dataset_new(Dataset):
                     PGA_time=np.array(PGA_time)
         if self.mode=="train":
             return Specific_waveforms,Stations_location,PGA_targets_location,PGA_labels
-        else:          
-            return Specific_waveforms,Stations_location,PGA_targets_location,PGA_labels,P_picks,specific_index[0],PGA_time
+        else:
+            P_picks=np.array(P_picks)
+            PGA_time=np.array(PGA_time)
+            others_info={"EQ_ID":specific_index[0],"p_picks":P_picks,"pga_time":PGA_time}       
+            return Specific_waveforms,Stations_location,PGA_targets_location,PGA_labels,others_info
 
 # full_data=multiple_station_dataset_new("D:/TEAM_TSMIP/data/TSMIP_new.hdf5",mode="train",mask_waveform_sec=3,
 #                                                 trigger_station_threshold=1,oversample=1.5,mask_waveform_random=True) 

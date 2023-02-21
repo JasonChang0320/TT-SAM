@@ -45,9 +45,8 @@ for num in [2,7,9]:#[1,3,18,20]
     Elev=[]
     for j,sample in tqdm(enumerate(loader)):
 
-        picks=sample[4].flatten().numpy().tolist()
-        pga_time=sample[6].flatten().numpy().tolist()
-        sta_name=sample[7].flatten().numpy().tolist()
+        picks=sample[4]["p_picks"].flatten().numpy().tolist()
+        pga_time=sample[4]["pga_time"].flatten().numpy().tolist()
         lat=sample[2][:,:,0].flatten().tolist()
         lon=sample[2][:,:,1].flatten().tolist()
         elev=sample[2][:,:,2].flatten().tolist()
@@ -55,14 +54,12 @@ for num in [2,7,9]:#[1,3,18,20]
         P_picks.extend([np.nan]*(25-len(picks)))
         PGA_time.extend(pga_time)
         PGA_time.extend([np.nan]*(25-len(pga_time)))
-        Sta_name.extend(sta_name)
-        Sta_name.extend([np.nan]*(25-len(sta_name)))
         Lat.extend(lat)
         Lon.extend(lon)
         Elev.extend(elev)
         
-        eq_id=sample[5][:,:,0].flatten().numpy().tolist()
-        EQ_ID.extend(sample[5][:,:,0].flatten().numpy().tolist())
+        eq_id=sample[4]["EQ_ID"][:,:,0].flatten().numpy().tolist()
+        EQ_ID.extend(eq_id)
         EQ_ID.extend([np.nan]*(25-len(eq_id)))
         weight,sigma,mu=full_Model(sample)
         
@@ -79,26 +76,26 @@ for num in [2,7,9]:#[1,3,18,20]
     Mixture_mu=Mixture_mu.flatten()
 
     output={"EQ_ID":EQ_ID,"p_picks":P_picks,"pga_time":PGA_time,
-            "predict":Mixture_mu,"answer":PGA,"sta_name":Sta_name,"latitude":Lat,"longitude":Lon,"elevation":Elev}
+            "predict":Mixture_mu,"answer":PGA,"latitude":Lat,"longitude":Lon,"elevation":Elev}
     output_df=pd.DataFrame(output)
     output_df=output_df[output_df["answer"]!=0]
     # output_df.to_csv(f"./predict/model{num} {mask_after_sec} sec {trigger_station_threshold} triggered station prediction.csv",index=False)
     fig,ax=true_predicted(y_true=output_df["answer"],y_pred=output_df["predict"],
                     time=mask_after_sec,quantile=False,agg="point", point_size=12)
 
-    fig.savefig(f"./predict/model{num} {mask_after_sec} sec {trigger_station_threshold} triggered station.png")
+    # fig.savefig(f"./predict/model{num} {mask_after_sec} sec {trigger_station_threshold} triggered station.png")
 
-input_waveform_picks=np.array(data[31][4])[np.array(data[31][4])<np.array(data[31][4])[0]+mask_after_sec*200]
-wav_fig,ax=plt.subplots(len(input_waveform_picks),1,figsize=(14,7))
-for i in range(0,len(input_waveform_picks)):
-    for k in range(0,3):
-        ax[i].plot(data[31][0][i,:,k].flatten())
-        ax[i].set_yticklabels("")
-    ax[i].axvline(x=input_waveform_picks[i],c="r")
+# input_waveform_picks=np.array(data[31][4])[np.array(data[31][4])<np.array(data[31][4])[0]+mask_after_sec*200]
+# wav_fig,ax=plt.subplots(len(input_waveform_picks),1,figsize=(14,7))
+# for i in range(0,len(input_waveform_picks)):
+#     for k in range(0,3):
+#         ax[i].plot(data[31][0][i,:,k].flatten())
+#         ax[i].set_yticklabels("")
+#     ax[i].axvline(x=input_waveform_picks[i],c="r")
 # ax[0].set_title(f"{int(sample[-1])}input")
 
-fig=true_predicted(y_true=output_df["answer"][output_df["EQ_ID"]==27558],y_pred=output_df["predict"][output_df["EQ_ID"]==27558],
-                time=mask_after_sec,quantile=False,agg="point", point_size=12)
+# fig=true_predicted(y_true=output_df["answer"][output_df["EQ_ID"]==27558],y_pred=output_df["predict"][output_df["EQ_ID"]==27558],
+#                 time=mask_after_sec,quantile=False,agg="point", point_size=12)
 
 #ensemble model prediction
 mask_after_sec=3
