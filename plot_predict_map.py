@@ -175,7 +175,7 @@ def warning_map(trace_info=None,eventmeta=None,EQ_ID=None,sec=None,
     predict_filter=[true_not_warn_filter,loss_warn_filter,wrong_warn_filter]
 
 
-    title=f"EQ_ID: {EQ_ID}, {sec} sec performance, warning threshold: VI"
+    title=f"EQ_ID: {EQ_ID}, {sec} sec performance, warning threshold: IV"
     src_crs = ccrs.PlateCarree()
     fig, ax_map = plt.subplots(
         subplot_kw={'projection': src_crs},
@@ -282,8 +282,6 @@ def warning_map(trace_info=None,eventmeta=None,EQ_ID=None,sec=None,
     ax_map.legend()
     if title:
         ax_map.set_title(title)
-    else:
-        ax_map.set_title(f"EQ_ID: {EQ_ID}, {sec} sec performance, warning threshold: VI")
     cbar = plt.colorbar(warn_sta, extend='both')
     cbar.set_label('Warning time (sec)')
 
