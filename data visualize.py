@@ -1,13 +1,17 @@
 import matplotlib.pyplot as plt
+
+fig,ax=plt.subplots()
 import numpy as np
 import pandas as pd
 import torch
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-from wordcloud import WordCloud
 
 from multiple_sta_dataset import (multiple_station_dataset,
                                   multiple_station_dataset_new)
+
+# from wordcloud import WordCloud
+
 
 #events histogram
 Afile_path="data/Afile"
@@ -101,18 +105,18 @@ ax.legend(loc="center right")
 
 #training data (add oversampling)
 origin_data=multiple_station_dataset_new("D:/TEAM_TSMIP/data/TSMIP_new.hdf5",mode="train",mask_waveform_sec=3,
-                                                trigger_station_threshold=1,oversample=1)  
+                                                trigger_station_threshold=1,oversample=1,label_key="pgv")  
 new_data=multiple_station_dataset_new("D:/TEAM_TSMIP/data/TSMIP_new.hdf5",mode="train",mask_waveform_sec=3,
-                                                trigger_station_threshold=1,oversample=1.5,oversample_mag=4) 
-new_data1=multiple_station_dataset_new("D:/TEAM_TSMIP/data/TSMIP_new.hdf5",mode="train",mask_waveform_sec=3,
-                                        mag_threshold=4.5,oversample=1.5,oversample_mag=6)
+                                                trigger_station_threshold=1,oversample=1.5,oversample_mag=4,label_key="pgv") 
+# new_data1=multiple_station_dataset_new("D:/TEAM _TSMIP/data/TSMIP_new.hdf5",mode="train",mask_waveform_sec=3,
+#                                         mag_threshold=4.5,oversample=1.5,oversample_mag=6)
 # oversample_data=multiple_station_dataset_new("D:/TEAM_TSMIP/data/TSMIP.hdf5",train_mode=True,mask_waveform_sec=5,oversample=1.5,oversample_mag=5)
 # pre1=pd.read_csv(f"./predict/model7 5 sec prediction.csv")
 
 
 origin_loader=DataLoader(dataset=origin_data,batch_size=16)
 new_loader=DataLoader(dataset=new_data,batch_size=16)
-new_loader1=DataLoader(dataset=new_data1,batch_size=16)
+# new_loader1=DataLoader(dataset=new_data1,batch_size=16)
 
 
 origin_PGA=[]
@@ -135,42 +139,45 @@ new_PGA_array=np.array(new_PGA)
 oversampled_high_intensity_rate=np.sum(new_PGA_array>np.log10(0.25))/len(new_PGA_array)
 print(f"oversampled rate:{oversampled_high_intensity_rate}")
 
-new_PGA1=[]
-for sample in tqdm(new_loader1):
-    tmp_pga=torch.index_select(sample[3].flatten(), 
-                                0, 
-                                sample[3].flatten().nonzero().flatten()).tolist()
-    new_PGA1.extend(tmp_pga)
-new_PGA1_array=np.array(new_PGA1)
-magnitude_threshold_high_intensity_rate=np.sum(new_PGA1_array>np.log10(0.25))/len(new_PGA1_array)
-print(f"magnitude threshold rate:{magnitude_threshold_high_intensity_rate}")
+# new_PGA1=[]
+# for sample in tqdm(new_loader1):
+#     tmp_pga=torch.index_select(sample[3].flatten(), 
+#                                 0, 
+#                                 sample[3].flatten().nonzero().flatten()).tolist()
+#     new_PGA1.extend(tmp_pga)
+# new_PGA1_array=np.array(new_PGA1)
+# magnitude_threshold_high_intensity_rate=np.sum(new_PGA1_array>np.log10(0.25))/len(new_PGA1_array)
+# print(f"magnitude threshold rate:{magnitude_threshold_high_intensity_rate}")
 
+# label = ["2", "3", "4", "5-", "5+", "6-", "6+", "7"]
+# pga_threshold = np.log10(
+#     [0.025, 0.080, 0.250, 0.80, 1.4, 2.5, 4.4, 8.0,10])
 label = ["2", "3", "4", "5-", "5+", "6-", "6+", "7"]
-pga_threshold = np.log10(
-    [0.025, 0.080, 0.250, 0.80, 1.4, 2.5, 4.4, 8.0,10])
+pgv_threshold = np.log10(
+    [0.007,0.019,0.057,0.15,0.3,0.5,0.8,1.4,20])
 
 fig,ax=plt.subplots(figsize=(7,7))
 ax.hist(new_PGA,bins=32,edgecolor="k",color = "lightblue",label="oversampled train data")
 ax.hist(origin_PGA,bins=32,edgecolor="k",label="origin train data")
-ax.hist(new_PGA1,bins=32,edgecolor="k",label="mag>=4.5")
+# ax.hist(new_PGA1,bins=32,edgecolor="k",label="mag>=4.5")
 ax.hist(pre1["answer"],bins=28,edgecolor="k",label="test data")
-ax.vlines(pga_threshold[1:-1],0,40000,linestyles='dotted',color="k")
-for i in range(len(pga_threshold)-1):
-    ax.text((pga_threshold[i]+pga_threshold[i+1])/2,50000,label[i])
-ax.set_ylabel("number of trace")
-ax.set_xlabel("log(PGA (m/s2))")
-ax.set_title("TSMIP data PGA distribution")
+ax.vlines(pgv_threshold[1:-1],0,40000,linestyles='dotted',color="k")
+for i in range(len(pgv_threshold)-1):
+    ax.text((pgv_threshold[i]+pgv_threshold[i+1])/2,50000,label[i])
+ax.set_ylabel("number of traces")
+ax.set_xlabel("log(PGV (m/s))")
+ax.set_title("TSMIP data PGV distribution")
 ax.set_yscale("log")
 fig.legend(loc='upper right')
 
 # test label ditribution
-pre1=pd.read_csv("D:/TEAM_TSMIP/predict/3 sec updated dataset and new data generator/model1 3 18 20 3 sec 1 triggered station prediction.csv")
+pre1=pd.read_csv("predict/model1 2 3 sec 1 triggered station prediction.csv")
 
 fig,ax=plt.subplots(figsize=(7,7))
 ax.hist(pre1["answer"],bins=32,edgecolor="k",label="origin data")
-ax.vlines(pga_threshold[1:-1],0,17700,linestyles='dotted',color="k")
-for i in range(len(pga_threshold)-1):
-    ax.text((pga_threshold[i]+pga_threshold[i+1])/2,22500,label[i])
+ax.vlines(pgv_threshold[1:-1],0,17700,linestyles='dotted',color="k")
+for i in range(len(pgv_threshold)-1):
+    ax.text((pgv_threshold[i]+pgv_threshold[i+1])/2,22500,label[i])
 ax.set_ylabel("number of trace")
 ax.set_xlabel("log(PGA (m/s2))")
 ax.set_title("TSMIP Test data PGA distribution")

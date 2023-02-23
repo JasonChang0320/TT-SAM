@@ -164,6 +164,7 @@ def plot_pga_map(trace_info=None, eventmeta=None, true_pga=None, pred_pga=None,
         plt.close(fig)
     else:
         plt.show()
+    return fig,ax_map
 
 def warning_map(trace_info=None,eventmeta=None,EQ_ID=None,sec=None,
                         pga_threshold=None,title=None,Pwave_vel=6.5,Swave_vel=3.5):
@@ -289,7 +290,7 @@ def warning_map(trace_info=None,eventmeta=None,EQ_ID=None,sec=None,
     return fig,ax_map
 
 def true_predicted(y_true, y_pred, time, agg='mean', quantile=True, ms=None,
-                   ax=None,axis_fontsize=20,point_size=2,target="y"):
+                   ax=None,axis_fontsize=20,point_size=2,target="pga"):
     if ax is None:
         fig = plt.figure(figsize=(10, 10))
         ax = fig.add_subplot(111)
@@ -319,12 +320,17 @@ def true_predicted(y_true, y_pred, time, agg='mean', quantile=True, ms=None,
                           cmap='coolwarm', zorder=2)
 
     intensity = TaiwanIntensity()
-
-    ax.hlines(intensity.pga[3:-1], limits[0], intensity.pga[3:-1],
+    if target == "pga":
+        intensity_threshold=intensity.pga
+        ticks=intensity.pga_ticks
+    elif target == "pgv":
+        intensity_threshold=intensity.pgv
+        ticks=intensity.pgv_ticks
+    ax.hlines(intensity_threshold[3:-1], limits[0], intensity_threshold[3:-1],
               linestyles='dotted')
-    ax.vlines(intensity.pga[3:-1], limits[0], intensity.pga[3:-1],
+    ax.vlines(intensity_threshold[3:-1], limits[0], intensity_threshold[3:-1],
               linestyles='dotted')
-    for i, label in zip(intensity.pga_ticks[2:-2], intensity.label[2:-2]):
+    for i, label in zip(ticks[2:-2], intensity.label[2:-2]):
         ax.text(i, limits[0], label, va='bottom',fontsize=axis_fontsize-7)
 
     ax.set_xlabel(f"ture_{target} log(m/s^2)",fontsize=axis_fontsize)
