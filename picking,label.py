@@ -47,10 +47,10 @@ for trace_index in tqdm(traces.index):
                         s_pick=True)
         # p_pick,s_pick,fig=trace_pick_plot(trace,file_name)
         #get pga
-        pga,pga_times=get_peak_value(trace)
+        pga,pga_times=get_peak_value(trace) #label unit log(m/s2)
         #get pgv
         vel_stream = get_integrated_stream(trace)
-        pgv, pgv_times = get_peak_value(vel_stream)
+        pgv, pgv_times = get_peak_value(vel_stream) #label unit log(m/s)
         traces.loc[trace_index,"p_picks (sec)"]=p_pick
         traces.loc[trace_index,"s_picks (sec)"]=s_pick
         traces.loc[trace_index,"pga"]=pga 

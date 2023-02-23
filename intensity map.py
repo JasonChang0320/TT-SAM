@@ -47,17 +47,26 @@ event=catalog[catalog["EQ_ID"]==EQ_ID]
 event=event.assign(latitude=event["lat"]+event["lat_minute"]/60,
                     longitude=event["lon"]+event["lon_minute"]/60)
 
-plot_pga_map(trace_info=event_prediction,eventmeta=event,
+fig,ax=plot_pga_map(trace_info=event_prediction,eventmeta=event,
             true_pga=event_prediction["answer"],pred_pga=event_prediction["predict"],
             sec=mask_after_sec,EQ_ID=EQ_ID,grid_method="linear",pad=100)
+# fig.savefig(f"{path}/precision and warning time map/eq_id {EQ_ID}/{mask_after_sec} sec intensity map.png",
+#             dpi=300)
 
-warning_map(trace_info=event_prediction,eventmeta=event,EQ_ID=EQ_ID,sec=mask_after_sec,
+fig,ax=warning_map(trace_info=event_prediction,eventmeta=event,EQ_ID=EQ_ID,sec=mask_after_sec,
                         pga_threshold=pga_threshold)
 
-correct_warning_with_epidist(event_prediction=event_prediction,mask_after_sec=mask_after_sec)
+# fig.savefig(f"{path}/precision and warning time map/eq_id {EQ_ID}/{mask_after_sec} sec warning map.png",
+#             dpi=300)
 
-warning_time_hist(prediction,catalog,EQ_ID=EQ_ID,mask_after_sec=mask_after_sec,warning_mag_threshold=4)
+fig,ax=correct_warning_with_epidist(event_prediction=event_prediction,mask_after_sec=mask_after_sec)
 
+# fig.savefig(f"{path}/precision and warning time map/eq_id {EQ_ID}/{mask_after_sec} sec epidist vs time.png",
+#             dpi=300)
+
+fig,ax=warning_time_hist(prediction,catalog,EQ_ID=EQ_ID,mask_after_sec=mask_after_sec,warning_mag_threshold=4)
+# fig.savefig(f"{path}/precision and warning time map/eq_id {EQ_ID}/{mask_after_sec} sec warning stations hist.png",
+#             dpi=300)
 
 fig,ax=true_predicted(y_true=prediction[prediction["EQ_ID"]==EQ_ID]["answer"],y_pred=prediction[prediction["EQ_ID"]==EQ_ID]["predict"],
                     time=mask_after_sec,quantile=False,agg="point", point_size=70)
@@ -65,3 +74,5 @@ true_predict_filter=((prediction["predict"]>pga_threshold) & ((prediction["answe
 eq_id_filter=(prediction["EQ_ID"]==EQ_ID)
 ax.scatter(prediction[eq_id_filter & true_predict_filter]["answer"],
         prediction[eq_id_filter & true_predict_filter]["predict"],s=70,c="red")
+# fig.savefig(f"{path}/precision and warning time map/eq_id {EQ_ID}/{mask_after_sec} sec true vs predict.png",
+#             dpi=300)
