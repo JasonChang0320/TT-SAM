@@ -1,13 +1,16 @@
+from itertools import repeat
+
 import matplotlib.pyplot as plt
 
 fig,ax=plt.subplots()
 import numpy as np
 import pandas as pd
 import torch
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, WeightedRandomSampler
+from torchsampler import ImbalancedDatasetSampler
 from tqdm import tqdm
 
-from multiple_sta_dataset import (multiple_station_dataset,
+from multiple_sta_dataset import (CustomSubset, multiple_station_dataset,
                                   multiple_station_dataset_new)
 
 # from wordcloud import WordCloud
@@ -104,18 +107,32 @@ ax.set_title(f"2012-2020 TSIMP no station location: validate on {validataion_yea
 ax.legend(loc="center right")
 
 #training data (add oversampling)
+# new_data=multiple_station_dataset_new("D:/TEAM_TSMIP/data/TSMIP_new.hdf5",mode="train",mask_waveform_sec=3,
+#                                                 oversample_by_labels=True,dowmsampling=True,oversample=1,label_key="pgv",test_year=2016)
 origin_data=multiple_station_dataset_new("D:/TEAM_TSMIP/data/TSMIP_new.hdf5",mode="train",mask_waveform_sec=3,
-                                                trigger_station_threshold=1,oversample=1,label_key="pgv")  
+                                                oversample=1,oversample_mag=4,label_key="pgv") 
 new_data=multiple_station_dataset_new("D:/TEAM_TSMIP/data/TSMIP_new.hdf5",mode="train",mask_waveform_sec=3,
-                                                trigger_station_threshold=1,oversample=1.5,oversample_mag=4,label_key="pgv") 
-# new_data1=multiple_station_dataset_new("D:/TEAM _TSMIP/data/TSMIP_new.hdf5",mode="train",mask_waveform_sec=3,
-#                                         mag_threshold=4.5,oversample=1.5,oversample_mag=6)
+                                                oversample=1,oversample_mag=4,label_key="pgv",weight_label=True) 
 # oversample_data=multiple_station_dataset_new("D:/TEAM_TSMIP/data/TSMIP.hdf5",train_mode=True,mask_waveform_sec=5,oversample=1.5,oversample_mag=5)
-# pre1=pd.read_csv(f"./predict/model7 5 sec prediction.csv")
+pre1=pd.read_csv(f"./predict/2016 data model3 3 sec 1 triggered station prediction.csv")
 
+train_set_size = int(len(new_data) * 0.8)
+valid_set_size = len(new_data) - train_set_size
+indice=np.arange(len(new_data))
+np.random.seed(0)
+np.random.shuffle(indice)
+train_indice,test_indice=np.array_split(indice,[train_set_size])
+train_dataset=CustomSubset(new_data,train_indice)
+val_dataset=CustomSubset(new_data,test_indice)
 
-origin_loader=DataLoader(dataset=origin_data,batch_size=16)
-new_loader=DataLoader(dataset=new_data,batch_size=16)
+train_sampler=WeightedRandomSampler(weights=train_dataset.weight,num_samples=len(train_dataset),replacement=True)
+train_loader=DataLoader(dataset=train_dataset,batch_size=16,
+                                sampler=train_sampler,shuffle=False,drop_last=True)
+# val_loader=DataLoader(dataset=val_dataset,batch_size=16,
+#                                 shuffle=False,drop_last=True)
+
+origin_loader=DataLoader(origin_data,batch_size=16,shuffle=False,drop_last=True)
+# new_loader=DataLoader(dataset=new_data,batch_size=16)
 # new_loader1=DataLoader(dataset=new_data1,batch_size=16)
 
 
@@ -126,17 +143,17 @@ for sample in tqdm(origin_loader):
                                 sample[3].flatten().nonzero().flatten()).tolist()
     origin_PGA.extend(tmp_pga)
 origin_PGA_array=np.array(origin_PGA)
-high_intensity_rate=np.sum(origin_PGA_array>np.log10(0.25))/len(origin_PGA_array)
+high_intensity_rate=np.sum(origin_PGA_array>np.log10(0.057))/len(origin_PGA_array)
 print(f"origin rate:{high_intensity_rate}")
 
 new_PGA=[]
-for sample in tqdm(new_loader):
+for sample in tqdm(train_loader):
     tmp_pga=torch.index_select(sample[3].flatten(), 
                                 0, 
                                 sample[3].flatten().nonzero().flatten()).tolist()
     new_PGA.extend(tmp_pga)
 new_PGA_array=np.array(new_PGA)
-oversampled_high_intensity_rate=np.sum(new_PGA_array>np.log10(0.25))/len(new_PGA_array)
+oversampled_high_intensity_rate=np.sum(new_PGA_array>np.log10(0.057))/len(new_PGA_array)
 print(f"oversampled rate:{oversampled_high_intensity_rate}")
 
 # new_PGA1=[]
@@ -152,15 +169,15 @@ print(f"oversampled rate:{oversampled_high_intensity_rate}")
 # label = ["2", "3", "4", "5-", "5+", "6-", "6+", "7"]
 # pga_threshold = np.log10(
 #     [0.025, 0.080, 0.250, 0.80, 1.4, 2.5, 4.4, 8.0,10])
-label = ["2", "3", "4", "5-", "5+", "6-", "6+", "7"]
+label = ["0","1","2", "3", "4", "5-", "5+", "6-", "6+", "7"]
 pgv_threshold = np.log10(
-    [0.007,0.019,0.057,0.15,0.3,0.5,0.8,1.4,20])
+    [0.00001,0.002,0.007,0.019,0.057,0.15,0.3,0.5,0.8,1.4,20])
 
 fig,ax=plt.subplots(figsize=(7,7))
-ax.hist(new_PGA,bins=32,edgecolor="k",color = "lightblue",label="oversampled train data")
-ax.hist(origin_PGA,bins=32,edgecolor="k",label="origin train data")
+ax.hist(new_PGA,bins=32,edgecolor="k",label="oversampled train data",alpha=0.6)
+ax.hist(origin_PGA,bins=32,edgecolor="k",label="origin train data",alpha=0.6)
 # ax.hist(new_PGA1,bins=32,edgecolor="k",label="mag>=4.5")
-ax.hist(pre1["answer"],bins=28,edgecolor="k",label="test data")
+ax.hist(pre1["answer"],bins=28,edgecolor="k",label="2016 data")
 ax.vlines(pgv_threshold[1:-1],0,40000,linestyles='dotted',color="k")
 for i in range(len(pgv_threshold)-1):
     ax.text((pgv_threshold[i]+pgv_threshold[i+1])/2,50000,label[i])
@@ -183,3 +200,60 @@ ax.set_xlabel("log(PGA (m/s2))")
 ax.set_title("TSMIP Test data PGA distribution")
 ax.set_yscale("log")
 fig.legend(loc='upper right')
+
+# try oversample function
+
+label = ["2", "3", "4", "5-", "5+", "6-", "6+", "7"]
+pgv_threshold = np.log10(
+    [0.007,0.019,0.057,0.15,0.3,0.5,0.8,1.4,20])
+origin_PGA_array=np.array(origin_PGA)
+x=origin_PGA_array[origin_PGA_array > np.log10(0.019)]
+y=4.5**(1.5**x)+1
+y=np.round(y,0)
+fig,ax=plt.subplots(figsize=(7,7))
+ax.scatter(x,y)
+ax.vlines(pgv_threshold[1:-1],0,10,linestyles='dotted',color="k")
+for i in range(len(pgv_threshold)-1):
+    ax.text((pgv_threshold[i]+pgv_threshold[i+1])/2,10,label[i])
+# ax.set_ylim(0,10)
+
+label=origin_data.labels.flatten()
+
+
+class pgv_intensity_classifier():
+    def __init__(self):
+        self.threshold = np.log10([0.002,0.007,0.019,0.057,0.15,0.5,1.4,20])
+        self.label=[0, 1 ,2, 3, 4, 5, 6, 7]
+    def classify(self,input_array):
+        output_array=np.zeros_like(input_array)
+        for i in range(1,len(input_array)):
+            if input_array[i]<self.threshold[0]:
+                output_array[i]=self.label[0]
+            elif input_array[i]<self.threshold[1]:
+                output_array[i]=self.label[1]
+            elif input_array[i]<self.threshold[2]:
+                output_array[i]=self.label[2]
+            elif input_array[i]<self.threshold[3]:
+                output_array[i]=self.label[3]
+            elif input_array[i]<self.threshold[4]:
+                output_array[i]=self.label[4]
+            elif input_array[i]<self.threshold[5]:
+                output_array[i]=self.label[5]
+            elif input_array[i]<self.threshold[6]:
+                output_array[i]=self.label[6]
+            elif input_array[i]<self.threshold[7]:
+                output_array[i]=self.label[7]
+        return output_array
+
+pgv_classifier=pgv_intensity_classifier()
+
+output_array=pgv_classifier.classify(label)
+
+label_class,counts=np.unique(output_array, return_counts=True)
+
+
+samples_weight = torch.as_tensor([1/counts[int(i)] for i in output_array], dtype=torch.double)
+
+from torch.utils.data import WeightedRandomSampler
+
+sampler = WeightedRandomSampler(weights=samples_weight,num_samples=len(output_array),replacement=True)

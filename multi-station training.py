@@ -1,24 +1,24 @@
 import pickle
 
 import mlflow.pytorch
+import numpy as np
 import torch
 import torch.nn as nn
 from mlflow import log_artifact, log_metrics, log_param, log_params
 from torch.backends import cudnn
-from torch.utils.data import DataLoader, random_split
+from torch.utils.data import DataLoader, WeightedRandomSampler, random_split
 from tqdm import tqdm
 
 from CNN_Transformer_Mixtureoutput_TEAM import (CNN, MDN, MLP,
                                                 PositionEmbedding,
                                                 TransformerEncoder, full_model,
                                                 mdn_loss_fn)
-from multiple_sta_dataset import (multiple_station_dataset,
-                                  multiple_station_dataset_new)
+from multiple_sta_dataset import CustomSubset, multiple_station_dataset_new
 
 
 def train_process(full_Model,optimizer,hyper_param,num_of_gaussian=5,train_data_size=0.8):
-    experiment = mlflow.get_experiment_by_name("acc predict PGV: 1991-2020 updated_dataset 3~10 sec")
-    with mlflow.start_run(run_name="TSMIP_EEW",experiment_id=experiment.experiment_id) as run:
+    experiment = mlflow.get_experiment_by_name("acc predict PGV: new oversample, test: 2016")
+    with mlflow.start_run(run_name="TSMIP_EEW filtered input",experiment_id=experiment.experiment_id) as run:
         log_params({"epochs":hyper_param["num_epochs"],
                     "batch size":hyper_param["batch_size"],
                     "learning rate":hyper_param["learning_rate"]})
@@ -28,15 +28,30 @@ def train_process(full_Model,optimizer,hyper_param,num_of_gaussian=5,train_data_
         # full_data=multiple_station_dataset("D:/TEAM_TSMIP/data/TSMIP_new.hdf5",train_mode=True,oversample=1.5,
         #                                         mask_waveform_sec=3,test_year=2018) 
         full_data=multiple_station_dataset_new("D:/TEAM_TSMIP/data/TSMIP_new.hdf5",mode="train",mask_waveform_sec=3,
-                                                trigger_station_threshold=1,oversample=1.5,
-                                                mask_waveform_random=True,label_key="pgv") 
+                                                weight_label=True,oversample=1,test_year=2016,
+                                                mask_waveform_random=False,label_key="pgv") 
 
         train_set_size = int(len(full_data) * train_data_size)
         valid_set_size = len(full_data) - train_set_size
         torch.manual_seed(0)
-        train_dataset, val_dataset = random_split(full_data, [train_set_size, valid_set_size])
-        train_loader=DataLoader(dataset=train_dataset,batch_size=hyper_param["batch_size"],shuffle=True,pin_memory=True,num_workers=5,drop_last=True)
+        # for pga training
+        # train_dataset, val_dataset = random_split(full_data, [train_set_size, valid_set_size])
+        # train_loader=DataLoader(dataset=train_dataset,batch_size=hyper_param["batch_size"],shuffle=True,pin_memory=True,num_workers=5,drop_last=True)
+        # valid_loader=DataLoader(dataset=val_dataset,batch_size=hyper_param["batch_size"],shuffle=True,pin_memory=True,num_workers=5,drop_last=True)
+
+        #for pgv training
+        indice=np.arange(len(full_data))
+        np.random.seed(0)
+        np.random.shuffle(indice)
+        train_indice,valid_indice=np.array_split(indice,[train_set_size])
+        train_dataset=CustomSubset(full_data,train_indice)
+        val_dataset=CustomSubset(full_data,valid_indice)
+
+        train_sampler=WeightedRandomSampler(weights=train_dataset.weight,num_samples=len(train_dataset),replacement=True)
+        train_loader=DataLoader(dataset=train_dataset,batch_size=hyper_param["batch_size"],
+                                        sampler=train_sampler,shuffle=False,pin_memory=True,num_workers=5,drop_last=True)
         valid_loader=DataLoader(dataset=val_dataset,batch_size=hyper_param["batch_size"],shuffle=True,pin_memory=True,num_workers=5,drop_last=True)
+
         gaussian_loss = nn.GaussianNLLLoss(reduction="none")
         training_loss = []
         validation_loss = []
@@ -135,8 +150,8 @@ if __name__ == '__main__':
     num_epochs=100
     # batch_size=16
     for batch_size in [16,32]:
-        for LR in [5e-5,1e-5]:
-            for i in range(5):
+        for LR in [1e-5,5e-5]:
+            for i in range(3):
                 model_index+=1
                 hyper_param={
                             "model_index":model_index,

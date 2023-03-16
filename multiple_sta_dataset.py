@@ -5,7 +5,17 @@ import numpy as np
 import pandas as pd
 import torch
 from numpy import ma
-from torch.utils.data import DataLoader, Dataset
+from scipy.signal import butter, lfilter
+from torch.utils.data import DataLoader, Dataset, Subset
+
+
+def butter_lowpass(cutoff, fs, order=5):
+    return butter(order, cutoff, fs=fs, btype='low', analog=False)
+
+def butter_lowpass_filter(data, cutoff, fs, order=5):
+    b, a = butter_lowpass(cutoff, fs, order=order)
+    y = lfilter(b, a, data)
+    return y
 
 
 def shift_waveform(waveform,p_pick,start_before_sec=5,total_sec=30,sample_rate=200):
@@ -238,11 +248,36 @@ import numpy as np
 import pandas as pd
 
 
+class pgv_intensity_classifier():
+    def __init__(self):
+        self.threshold = np.log10([0.002,0.007,0.019,0.057,0.15,0.5,1.4,20])
+        self.label=[0, 1 ,2, 3, 4, 5, 6, 7]
+    def classify(self,input_array):
+        output_array=np.zeros_like(input_array)
+        for i in range(1,len(input_array)):
+            if input_array[i]<self.threshold[0]:
+                output_array[i]=self.label[0]
+            elif input_array[i]<self.threshold[1]:
+                output_array[i]=self.label[1]
+            elif input_array[i]<self.threshold[2]:
+                output_array[i]=self.label[2]
+            elif input_array[i]<self.threshold[3]:
+                output_array[i]=self.label[3]
+            elif input_array[i]<self.threshold[4]:
+                output_array[i]=self.label[4]
+            elif input_array[i]<self.threshold[5]:
+                output_array[i]=self.label[5]
+            elif input_array[i]<self.threshold[6]:
+                output_array[i]=self.label[6]
+            elif input_array[i]<self.threshold[7]:
+                output_array[i]=self.label[7]
+        return output_array
+
 class multiple_station_dataset_new(Dataset):
     def __init__(self,data_path,sampling_rate=200,data_length_sec=30,test_year=2018,mode="train",limit=None,
-                        label_key="pga",mask_waveform_sec=None,mask_waveform_random=False,oversample=1,oversample_mag=4,
-                        max_station_num=25,label_target=25,sort_by_picks=True,trigger_station_threshold=3,mag_threshold=0
-                        ):
+                        label_key="pga",mask_waveform_sec=None,mask_waveform_random=False,dowmsampling=False,oversample=1,oversample_mag=4,
+                        max_station_num=25,label_target=25,sort_by_picks=True,oversample_by_labels=False,mag_threshold=0,weight_label=False,
+                        classifier=pgv_intensity_classifier()):
         event_metadata = pd.read_hdf(data_path, 'metadata/event_metadata')
         trace_metadata = pd.read_hdf(data_path, 'metadata/traces_metadata')
         event_metadata = event_metadata[event_metadata["magnitude"]>=mag_threshold]
@@ -298,13 +333,20 @@ class multiple_station_dataset_new(Dataset):
         mask = (events_index != 0).any(axis=1)
         #label is nan mask
         mask=np.logical_and(mask,~np.isnan(labels))
+        #random delete too small labels
+        if dowmsampling:
+            small_labels_array=labels<np.log10(0.019)
+            np.random.seed(0)
+            random_array=np.random.choice([True,False], size=small_labels_array.shape)
+            random_delete_mask=np.logical_and(small_labels_array,random_array)
+            mask=np.logical_and(mask,~random_delete_mask)
 
         labels=np.expand_dims(np.expand_dims(labels, axis=1), axis=2)
         stations=np.expand_dims(np.expand_dims(stations, axis=1), axis=2)
         p_picks=picks[mask]
         stations=stations[mask]
         labels=labels[mask]
-        #new!!
+        
         ok_events_index=events_index[mask]
         ok_event_id=np.intersect1d(np.array(event_metadata["EQ_ID"].values), ok_events_index)
         if oversample>1:
@@ -319,26 +361,58 @@ class multiple_station_dataset_new(Dataset):
 
             oversampled_catalog=np.array(oversampled_catalog)
             ok_event_id=np.concatenate([ok_event_id,oversampled_catalog])
+        if oversample_by_labels:
+            oversampled_labels=[]
+            oversampled_picks=[]
+            labels=labels.flatten()
+            filter=labels > np.log10(0.057)
+            oversample_events_index=ok_events_index[filter]
+            oversample_p_pick=p_picks[filter]
+            Repeat_time=4.5**(1.5**labels[filter])+1
+            Repeat_time=np.round(Repeat_time,0)
+            for i in range(len(Repeat_time)):
+                repeat_time=int(Repeat_time[i])
+                oversampled_labels.extend(repeat(oversample_events_index[i], repeat_time))
+                oversampled_picks.extend(repeat(oversample_p_pick[i], repeat_time))
+            oversampled_labels=np.array(oversampled_labels)
+            oversampled_picks=np.array(oversampled_picks)
+            ok_events_index=np.concatenate((ok_events_index,oversampled_labels),axis=0)
+            p_picks=np.concatenate((p_picks,oversampled_picks),axis=0)
+        if weight_label:
+            labels=labels.flatten()
+            classifier=pgv_intensity_classifier()
+            output_array=classifier.classify(labels)
+            label_class,counts=np.unique(output_array, return_counts=True)
+            samples_weight = np.array([1/counts[int(i)] for i in output_array])
 
         Events_index=[]
+        Weight=[]
         for I,event in enumerate(ok_event_id):
             single_event_index=ok_events_index[np.where(ok_events_index[:,0]==event)[0]]
             single_event_p_picks=p_picks[np.where(ok_events_index[:,0]==event)[0]]
-            if np.count_nonzero(single_event_p_picks<single_event_p_picks[0]+(mask_waveform_sec*sampling_rate))<trigger_station_threshold: 
-                #number of triggered station should bigger than 3 (default)
-                continue
+            if weight_label:
+                single_event_label_weight=samples_weight[np.where(ok_events_index[:,0]==event)[0]]
             if sort_by_picks:
                 sort=single_event_p_picks.argsort()
                 single_event_p_picks=single_event_p_picks[sort]
                 single_event_index=single_event_index[sort]
+                if weight_label:
+                    single_event_label_weight=single_event_label_weight[sort]
             if len(single_event_index)>max_station_num:
                 time=int(np.ceil(len(single_event_index)/25)) #無條件進位
                 # np.array_split(single_event_index, 25)
                 splited_index=np.array_split(single_event_index, np.arange(max_station_num,max_station_num*time,max_station_num))
+                if weight_label:
+                    splited_weight=np.array_split(single_event_label_weight, np.arange(max_station_num,max_station_num*time,max_station_num))
                 for i in range(time):
                     Events_index.append([splited_index[0],splited_index[i]])
+                    if weight_label:
+                        Weight.append(np.mean(splited_weight[i]))
+
             else:
                 Events_index.append([single_event_index,single_event_index])
+                if weight_label:
+                    Weight.append(np.mean(single_event_label_weight))
 
 # specific_index=Events_index[400]
         self.data_path=data_path
@@ -346,8 +420,11 @@ class multiple_station_dataset_new(Dataset):
         self.event_metadata=event_metadata
         self.trace_metadata=trace_metadata
         self.label=label_key
+        self.labels=labels
         self.ok_events_index=ok_events_index
         self.ok_event_id=ok_event_id
+        if weight_label:
+            self.weight=Weight
         self.sampling_rate=sampling_rate
         self.data_length_sec=data_length_sec
         self.metadata=metadata 
@@ -358,7 +435,6 @@ class multiple_station_dataset_new(Dataset):
         self.label_target=label_target
         self.mask_waveform_sec=mask_waveform_sec
         self.mask_waveform_random=mask_waveform_random
-        self.trigger_station_threshold=trigger_station_threshold
     def __len__(self):
 
         return len(self.events_index)
@@ -377,6 +453,7 @@ class multiple_station_dataset_new(Dataset):
                     P_picks=[]
                     for eventID in specific_index[0]: #trace waveform
                         waveform=f['data'][str(eventID[0])]["traces"][eventID[1]]
+                        waveform=butter_lowpass_filter(waveform, cutoff=10, fs=200)
                         station_location=f['data'][str(eventID[0])]["station_location"][eventID[1]]
                         waveform=np.pad(waveform,((0,self.data_length_sec*self.sampling_rate-len(waveform)),(0,0)),"constant")
                         p_pick=f['data'][str(eventID[0])]["p_picks"][eventID[1]]
@@ -428,8 +505,37 @@ class multiple_station_dataset_new(Dataset):
             others_info={"EQ_ID":specific_index[0],"p_picks":P_picks,"pga_time":labels_time}       
             return Specific_waveforms,Stations_location,label_targets_location,labels,others_info
 
-# full_data=multiple_station_dataset_new("D:/TEAM_TSMIP/data/TSMIP_new.hdf5",mode="train",mask_waveform_sec=3,
-#                                                 trigger_station_threshold=1,oversample=1.5,mask_waveform_random=True) 
+class CustomSubset(Subset):
+    '''A custom subset class'''
+    def __init__(self, dataset, indices):
+        super().__init__(dataset, indices.tolist())
+        self.weight = np.array(dataset.weight)[self.indices] # 保留weight属性
+
+
+    def __getitem__(self, idx):
+        output= self.dataset[self.indices[idx]]      
+        return output
+
+    def __len__(self):
+        return len(self.indices)
+
+
+# origin_data=multiple_station_dataset_new("D:/TEAM_TSMIP/data/TSMIP_new.hdf5",mode="train",mask_waveform_sec=3,
+#                                                 oversample=1,oversample_mag=4,label_key="pgv",weight_label=True)
+# train_set_size = int(len(origin_data) * 0.8)
+# valid_set_size = len(origin_data) - train_set_size
+# indice=np.arange(len(origin_data))
+# np.random.seed(0)
+# np.random.shuffle(indice)
+# train_indice,test_indice=np.array_split(indice,[train_set_size])
+# train_dataset=CustomSubset(origin_data,train_indice)
+# val_dataset=CustomSubset(origin_data,test_indice)
+# from torch.utils.data import WeightedRandomSampler
+
+# train_sampler=WeightedRandomSampler(weights=train_dataset.weight,num_samples=len(train_dataset),replacement=True)
+# train_loader=DataLoader(dataset=train_dataset,batch_size=16,
+#                                 sampler=train_sampler,shuffle=False,drop_last=True)
+
 # batch_size=16
 # loader=DataLoader(dataset=full_data,batch_size=batch_size,shuffle=True)
 # a=0
