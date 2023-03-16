@@ -34,3 +34,8 @@ Reference: Münchmeyer et al.,2021 (https://academic.oup.com/gji/article/225/1/6
 Calculate precision, recall, F1 score and calculate warthquake warning time
 
 ## Model performance
+
+![image](https://github.com/JasonChang0320/TEAM_Taiwan/blob/master/prediction%20images%20in%20readme/3%20sec%20intensity%20map.png)
+![image](https://github.com/JasonChang0320/TEAM_Taiwan/blob/master/prediction%20images%20in%20readme/3%20sec%20warning%20map.png)
+
+
