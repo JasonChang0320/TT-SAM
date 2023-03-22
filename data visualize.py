@@ -109,10 +109,10 @@ ax.legend(loc="center right")
 #training data (add oversampling)
 # new_data=multiple_station_dataset_new("D:/TEAM_TSMIP/data/TSMIP_new.hdf5",mode="train",mask_waveform_sec=3,
 #                                                 oversample_by_labels=True,dowmsampling=True,oversample=1,label_key="pgv",test_year=2016)
-origin_data=multiple_station_dataset_new("D:/TEAM_TSMIP/data/TSMIP_new.hdf5",mode="train",mask_waveform_sec=3,
-                                                oversample=1,oversample_mag=4,label_key="pgv") 
-new_data=multiple_station_dataset_new("D:/TEAM_TSMIP/data/TSMIP_new.hdf5",mode="train",mask_waveform_sec=3,
-                                                oversample=1,oversample_mag=4,label_key="pgv",weight_label=True) 
+origin_data=multiple_station_dataset_new("D:/TEAM_TSMIP/data/TSMIP_filtered.hdf5",mode="train",mask_waveform_sec=3,
+                                                oversample=1,oversample_mag=4,input_type="vel",label_key="pgv") 
+new_data=multiple_station_dataset_new("D:/TEAM_TSMIP/data/TSMIP_filtered.hdf5",mode="train",mask_waveform_sec=3,
+                                                oversample=1,oversample_mag=4,input_type="vel",label_key="pgv",weight_label=True) 
 # oversample_data=multiple_station_dataset_new("D:/TEAM_TSMIP/data/TSMIP.hdf5",train_mode=True,mask_waveform_sec=5,oversample=1.5,oversample_mag=5)
 pre1=pd.read_csv(f"./predict/2016 data model3 3 sec 1 triggered station prediction.csv")
 

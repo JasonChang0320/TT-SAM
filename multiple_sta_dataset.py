@@ -274,7 +274,7 @@ class pgv_intensity_classifier():
         return output_array
 
 class multiple_station_dataset_new(Dataset):
-    def __init__(self,data_path,sampling_rate=200,data_length_sec=30,test_year=2018,mode="train",limit=None,
+    def __init__(self,data_path,sampling_rate=200,data_length_sec=30,test_year=2018,mode="train",limit=None,input_type="acc",
                         label_key="pga",mask_waveform_sec=None,mask_waveform_random=False,dowmsampling=False,oversample=1,oversample_mag=4,
                         max_station_num=25,label_target=25,sort_by_picks=True,oversample_by_labels=False,mag_threshold=0,weight_label=False,
                         classifier=pgv_intensity_classifier()):
@@ -315,11 +315,15 @@ class multiple_station_dataset_new(Dataset):
                 for key in g_event:
                     if key not in data:
                         data[key] = []
-                    if key == 'traces':
+                    if key == f'{input_type}_traces':
                         index=np.arange(g_event[key].shape[0]).reshape(-1,1)
                         eventid = np.array([str(event_name)]*g_event[key].shape[0]).astype(np.int32).reshape(-1,1)
                         single_event_index=np.concatenate([eventid,index],axis=1)
-                    else:
+                    if key==label_key:
+                        data[key] += [g_event[key][()]]
+                    if key=="p_picks":
+                        data[key] += [g_event[key][()]]
+                    if key=="station_name":
                         data[key] += [g_event[key][()]]
                     if key == 'p_picks':
                         data[key][-1] //= decimate
@@ -419,6 +423,7 @@ class multiple_station_dataset_new(Dataset):
         self.mode=mode
         self.event_metadata=event_metadata
         self.trace_metadata=trace_metadata
+        self.input_type=input_type
         self.label=label_key
         self.labels=labels
         self.ok_events_index=ok_events_index
@@ -452,8 +457,7 @@ class multiple_station_dataset_new(Dataset):
                     labels_time=[]
                     P_picks=[]
                     for eventID in specific_index[0]: #trace waveform
-                        waveform=f['data'][str(eventID[0])]["traces"][eventID[1]]
-                        waveform=butter_lowpass_filter(waveform, cutoff=10, fs=200)
+                        waveform=f['data'][str(eventID[0])][f"{self.input_type}_traces"][eventID[1]]
                         station_location=f['data'][str(eventID[0])]["station_location"][eventID[1]]
                         waveform=np.pad(waveform,((0,self.data_length_sec*self.sampling_rate-len(waveform)),(0,0)),"constant")
                         p_pick=f['data'][str(eventID[0])]["p_picks"][eventID[1]]
@@ -520,8 +524,8 @@ class CustomSubset(Subset):
         return len(self.indices)
 
 
-# origin_data=multiple_station_dataset_new("D:/TEAM_TSMIP/data/TSMIP_new.hdf5",mode="train",mask_waveform_sec=3,
-#                                                 oversample=1,oversample_mag=4,label_key="pgv",weight_label=True)
+# origin_data=multiple_station_dataset_new("D:/TEAM_TSMIP/data/TSMIP_filtered.hdf5",mode="train",mask_waveform_sec=3,
+#                                                 oversample=1,oversample_mag=4,input_type="vel",label_key="pgv",weight_label=True)
 # train_set_size = int(len(origin_data) * 0.8)
 # valid_set_size = len(origin_data) - train_set_size
 # indice=np.arange(len(origin_data))
@@ -537,14 +541,15 @@ class CustomSubset(Subset):
 #                                 sampler=train_sampler,shuffle=False,drop_last=True)
 
 # batch_size=16
-# loader=DataLoader(dataset=full_data,batch_size=batch_size,shuffle=True)
+# loader=DataLoader(dataset=origin_data,batch_size=batch_size,shuffle=True)
 # a=0
-# for sample in full_data:
-#     print(np.isnan(sample[0]).any())
+# for sample in origin_data[850]:
 # # import matplotlib.pyplot as plt
-#     fig,ax=plt.subplots(25,1,figsize=(14,14))
-#     for i in range(25):
-#         ax[i].plot(sample[0][i,:,:])
+#     fig,ax=plt.subplots(13,1,figsize=(14,14))
+#     for i in range(13):
+#         ax[i].plot(origin_data[15276][0][i,:,: ])
+#         fig.savefig(f"data/dataset output/{15276}_vel.png")
+#         plt.close()
 #     a+=1
-#     if a>10:
+#     if a>150:
 #         break
