@@ -225,46 +225,48 @@ def get_peak_value(stream, thresholds=None):
 
     return peak, peak_time
 
-def get_integrated_stream(stream):
-    stream_vel = stream.copy()
-    stream_vel.filter("bandpass", freqmin=0.075, freqmax=10)
-    stream_vel.integrate()
-    return stream_vel
+def get_integrated_stream(stream,baseline_correction=None,filter=None):
+    stream_intergrated = stream.copy()
+    stream_intergrated.integrate()
+    if baseline_correction:
+        stream_intergrated.detrend(type='linear')
+    if filter:
+        stream_intergrated.filter("bandpass", freqmin=0.075, freqmax=10)
+    return stream_intergrated
 
-def cut_traces(traces,eq_id,before_p_sec=5,trace_length_sec=30,event_duration_sec=60,target_sampling_rate=200): #traces is dataframe
+def cut_traces(traces,eq_id,waveform_path,before_p_sec=5,trace_length_sec=30,target_sampling_rate=200,waveform_type="acc"): #traces is dataframe
     traces_info={"traces":[],"p_picks":[],"start_time":[],
                     "pga":[],"pgv":[],"pga_time":[],"pgv_time":[]}
     traces_filter=(traces["EQ_ID"]==eq_id)
     tmp_traces=traces[traces_filter]
-    # tmp_traces=tmp_traces.copy()
-    # tmp_traces.loc[:,"record_time"]=tmp_traces["start_time"] + tmp_traces["p_picks (sec)"]
-    # print(tmp_traces)
-    # correct_traces_filter=(tmp_traces["record_time"]>pd.to_datetime(tmp_traces[["year","month","day","hour","minute","second"]]))
-    # tmp_traces=tmp_traces[correct_traces_filter]
-
-    # sorted_indices = tmp_traces["epdis (km)"].sort_values().index
-    # tmp_traces=tmp_traces.loc[sorted_indices, :].reset_index(drop=True)
-    # print(tmp_traces)
-    # end_time_filter1=tmp_traces["record_time"]>=tmp_traces["record_time"][0]
-    # end_time_filter2=tmp_traces["record_time"]<=tmp_traces["record_time"][0]+pd.to_timedelta(event_duration_sec, unit='s')
-    # tmp_traces=tmp_traces[end_time_filter1 & end_time_filter2]
 
     sorted_indices = tmp_traces["epdis (km)"].sort_values().index
     tmp_traces=tmp_traces.loc[sorted_indices, :].reset_index(drop=True)
 
     year=tmp_traces["year"][0]
     month=tmp_traces["month"][0]
-    path=f"data/waveform/{year}/{month}"
     file_name=tmp_traces["file_name"][0]
 
     if len(str(month))<2:
         month="0"+str(month)
-    path=f"data/waveform/{year}/{month}"
+    path=f"{waveform_path}/{year}/{month}"
     file_name=file_name.strip()
     stream=read_tsmip(f"{path}/{file_name}.txt")
     sampling_rate=stream[0].stats["sampling_rate"]
+    stream.detrend(type='linear') #baseline correction
+    stream.filter("lowpass", freq=10) #filter
+    
+    if waveform_type=="acc":
+        pass
+    elif waveform_type=="vel":
+        stream = get_integrated_stream(stream,filter=True)
+    elif waveform_type=="dis":
+        stream = get_integrated_stream(stream,filter=True)
+        stream = get_integrated_stream(stream,filter=True)
+
     if sampling_rate!=target_sampling_rate:
         stream.resample(target_sampling_rate,window="hann")
+
     trace=np.transpose(np.array(stream))/100 #cm/s^2 to m/s^2
 
     trace_length_point=int(trace_length_sec*target_sampling_rate)
@@ -307,6 +309,16 @@ def cut_traces(traces,eq_id,before_p_sec=5,trace_length_sec=30,event_duration_se
             file_name=file_name.strip()
             stream=read_tsmip(f"{path}/{file_name}.txt")
             sampling_rate=stream[0].stats["sampling_rate"]
+            stream.detrend(type='linear') #baseline correction
+            stream.filter("lowpass", freq=10) #filter
+            
+            if waveform_type=="acc":
+                pass
+            elif waveform_type=="vel":
+                stream = get_integrated_stream(stream,filter=True)
+            elif waveform_type=="dis":
+                stream = get_integrated_stream(stream,filter=True)
+                stream = get_integrated_stream(stream,filter=True)
             
             if sampling_rate!=target_sampling_rate:
                 stream.resample(target_sampling_rate,window="hann")

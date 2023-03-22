@@ -5,18 +5,18 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
-from read_tsmip import *
+from read_tsmip import cut_traces
 
 Afile_path="data/Afile"
 sta_path="data/station information"
-catalog=pd.read_csv(f"{Afile_path}/final catalog (station exist)_1.csv")
-traces=pd.read_csv(f"{Afile_path}/1991-2020 traces with picking and label_new (sta location exist)_1.csv")
+waveform_path="data/waveform"
+catalog=pd.read_csv(f"{Afile_path}/final catalog (station exist)_filtered.csv")
+traces=pd.read_csv(f"{Afile_path}/1991-2020 traces with picking and label_new (sta location exist)_filtered.csv")
 station_info=pd.read_csv(f"{sta_path}/TSMIPstations_new.csv")
 traces.loc[traces.index,"p_picks (sec)"]=pd.to_timedelta(traces["p_picks (sec)"])
 traces.loc[traces.index,"start_time"]=pd.to_datetime(traces['start_time'], format="%Y-%m-%d %H:%M:%S")
 
-
-output="data/TSMIP_new.hdf5"
+output="data/TSMIP_filtered.hdf5"
 error_event={"EQ_ID":[],"reason":[]}
 with h5py.File(output, 'w') as file:
         data = file.create_group('data')
@@ -24,7 +24,11 @@ with h5py.File(output, 'w') as file:
         for eq_id in tqdm(catalog["EQ_ID"]):
         # for eq_id in [247]:
             try:
-                tmp_traces,traces_info=cut_traces(traces,eq_id)
+                tmp_traces,traces_info=cut_traces(traces,eq_id,waveform_path,waveform_type="acc")
+                _,vel_info=cut_traces(traces,eq_id,waveform_path,waveform_type="vel")
+                _,dis_info=cut_traces(traces,eq_id,waveform_path,waveform_type="dis")
+                traces_info["vel"]=vel_info["traces"]
+                traces_info["dis"]=dis_info["traces"]
                 # fig=plot_cutting_event(tmp_traces,traces_info)
                 start_time_str_arr = np.array(traces_info["start_time"],dtype='S30')
                 station_name_str_arr=np.array(tmp_traces["station_name"],dtype='S30')
@@ -36,7 +40,9 @@ with h5py.File(output, 'w') as file:
                     print("The location array contain NaN values")
                     continue
                 event = data.create_group(f"{eq_id}")
-                event.create_dataset("traces", data=traces_info["traces"],dtype=np.float64)
+                event.create_dataset("acc_traces", data=traces_info["traces"],dtype=np.float64)
+                event.create_dataset("vel_traces", data=traces_info["vel"],dtype=np.float64)
+                event.create_dataset("dis_traces", data=traces_info["dis"],dtype=np.float64)
                 event.create_dataset("p_picks", data=traces_info["p_picks"],dtype=np.int64)
                 event.create_dataset("pga",data=traces_info["pga"],dtype=np.float64)
                 event.create_dataset("pgv",data=traces_info["pgv"],dtype=np.float64)
@@ -49,7 +55,7 @@ with h5py.File(output, 'w') as file:
                 print(f"EQ_ID:{eq_id}, {reason}")
                 error_event["EQ_ID"].append(eq_id)
                 error_event["reason"].append(reason)
-                continue
+                continue 
             # fig.savefig(f"data/cutting waveform image/{eq_id}.png")
         error_event_df=pd.DataFrame(error_event)
         error_event_df.to_csv("data/load into hdf5 error event.csv",index=False)
