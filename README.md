@@ -1,8 +1,8 @@
 # TEAM_Taiwan
 
-This is a deep learning model trying to implement EEW systems in Taiwan, the data is from TSMIP.
+This is a deep learning model trying to implement EEW systems in Taiwan, data is contributed from TSMIP.
 
-Model architecture including CNN, Transformer Encoder, Mixture Density Model
+Model architecture include CNN, Transformer Encoder, Mixture Density Model
 
 Reference: Münchmeyer et al.,2021 (https://academic.oup.com/gji/article/225/1/646/6047414)
 ## data preprocess
