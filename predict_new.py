@@ -27,7 +27,7 @@ data = multiple_station_dataset_new(
     test_year=2016,
     label_key=label,
     mag_threshold=0,
-    input_type="vel",
+    input_type="dis",
 )
 # =========================
 device = torch.device("cuda")
@@ -61,11 +61,11 @@ for num in range(1, 13):  # [1,3,18,20]
     Lon = []
     Elev = []
     for j, sample in tqdm(enumerate(loader)):
-        picks = sample[4]["p_picks"].flatten().numpy().tolist()
-        pga_time = sample[4]["pga_time"].flatten().numpy().tolist()
-        lat = sample[2][:, :, 0].flatten().tolist()
-        lon = sample[2][:, :, 1].flatten().tolist()
-        elev = sample[2][:, :, 2].flatten().tolist()
+        picks = sample["p_picks"].flatten().numpy().tolist()
+        pga_time = sample["pga_time"].flatten().numpy().tolist()
+        lat = sample["target"][:, :, 0].flatten().tolist()
+        lon = sample["target"][:, :, 1].flatten().tolist()
+        elev = sample["target"][:, :, 2].flatten().tolist()
         P_picks.extend(picks)
         P_picks.extend([np.nan] * (25 - len(picks)))
         PGA_time.extend(pga_time)
@@ -74,7 +74,7 @@ for num in range(1, 13):  # [1,3,18,20]
         Lon.extend(lon)
         Elev.extend(elev)
 
-        eq_id = sample[4]["EQ_ID"][:, :, 0].flatten().numpy().tolist()
+        eq_id = sample["EQ_ID"][:, :, 0].flatten().numpy().tolist()
         EQ_ID.extend(eq_id)
         EQ_ID.extend([np.nan] * (25 - len(eq_id)))
         weight, sigma, mu = full_Model(sample)
@@ -84,13 +84,13 @@ for num in range(1, 13):  # [1,3,18,20]
         mu = mu.cpu()
         if j == 0:
             Mixture_mu = torch.sum(weight * mu, dim=2).cpu().detach().numpy()
-            PGA = sample[3].cpu().detach().numpy()
+            PGA = sample["label"].cpu().detach().numpy()
         else:
             Mixture_mu = np.concatenate(
                 [Mixture_mu, torch.sum(weight * mu, dim=2).cpu().detach().numpy()],
                 axis=1,
             )
-            PGA = np.concatenate([PGA, sample[3].cpu().detach().numpy()], axis=1)
+            PGA = np.concatenate([PGA, sample["label"].cpu().detach().numpy()], axis=1)
     PGA = PGA.flatten()
     Mixture_mu = Mixture_mu.flatten()
 
@@ -133,16 +133,16 @@ for num in range(1, 13):  # [1,3,18,20]
 #                 time=mask_after_sec,quantile=False,agg="point", point_size=12)
 
 # ensemble model prediction
-mask_after_sec = 10
+mask_after_sec = 3
 
-data3 = pd.read_csv(f"predict/model 3 {mask_after_sec} sec prediction.csv")
-data9 = pd.read_csv(f"predict/model 9 {mask_after_sec} sec prediction.csv")
-data10 = pd.read_csv(
-    f"predict/vel 3 sec predict pgv test 2016/model 10 {mask_after_sec} sec prediction.csv"
-)
 data2 = pd.read_csv(f"predict/model 2 {mask_after_sec} sec prediction.csv")
+data8 = pd.read_csv(f"predict/model 8 {mask_after_sec} sec prediction.csv")
+data12 = pd.read_csv(
+    f"predict/model 12 {mask_after_sec} sec prediction.csv"
+)
 
-output_df = (data3 + data9) / 2
+
+output_df = (data2 +data8 + data12) / 3
 fig, ax = true_predicted(
     y_true=output_df["answer"],
     y_pred=output_df["predict"],
@@ -153,9 +153,9 @@ fig, ax = true_predicted(
     target=label,
 )
 
-output_df.to_csv(f"./predict/model3 9 {mask_after_sec} sec prediction.csv", index=False)
+output_df.to_csv(f"./predict/model2 8 12 {mask_after_sec} sec prediction.csv", index=False)
 
-fig.savefig(f"./predict/model3 9 {mask_after_sec} sec.png")
+fig.savefig(f"./predict/model2 8 12 {mask_after_sec} sec.png")
 
 # plot each events prediction
 # output_df=(data1+data2+data3)/3

@@ -24,7 +24,7 @@ from multiple_sta_dataset import CustomSubset, multiple_station_dataset_new
 def train_process(
     full_Model, optimizer, hyper_param, num_of_gaussian=5, train_data_size=0.8
 ):
-    experiment = mlflow.get_experiment_by_name("vel predict PGV")
+    experiment = mlflow.get_experiment_by_name("dis predict PGV")
     with mlflow.start_run(
         run_name="TSMIP_EEW_random_sec", experiment_id=experiment.experiment_id
     ) as run:
@@ -49,7 +49,7 @@ def train_process(
             test_year=2016,
             mask_waveform_random=True,
             label_key="pgv",
-            input_type="vel",
+            input_type="dis",
         )
 
         train_set_size = int(len(full_data) * train_data_size)
@@ -104,14 +104,8 @@ def train_process(
             for sample in tqdm(train_loader):
                 optimizer.zero_grad()
                 weight, sigma, mu = full_Model(sample)
-                # if(np.isnan(sample[1]).any()):
-                #     print("The Array contain NaN values")
-                #     for value in sample[1].flatten():
-                #         print(value)
-                # else:
-                #     print("The Array does not contain NaN values")
                 pga_label = (
-                    sample[3]
+                    sample["label"]
                     .reshape(hyper_param["batch_size"], full_data.label_target, 1)
                     .cuda()
                 )
@@ -143,7 +137,7 @@ def train_process(
                 weight, sigma, mu = full_Model(sample)
 
                 pga_label = (
-                    sample[3]
+                    sample["label"]
                     .reshape(hyper_param["batch_size"], full_data.label_target, 1)
                     .cuda()
                 )
@@ -229,9 +223,9 @@ if __name__ == "__main__":
     model_index = 0
     num_epochs = 100
     # batch_size=16
-    for batch_size in [16, 32]:
+    for batch_size in [32]:
         for LR in [1e-5, 5e-5]:
-            for i in range(3):
+            for i in range(5):
                 model_index += 1
                 hyper_param = {
                     "model_index": model_index,
@@ -280,33 +274,3 @@ if __name__ == "__main__":
             #     pickle.dump(training_loss, fp)
             # with open(f"{path}/loss/target position not influence each other/{ensamble_index} {num_epochs} epoch mdn_validation loss_lr{LR}_batch_size{batch_size}_earlystop oversample sort_picks", "wb") as fp:
             #     pickle.dump(validation_loss, fp)
-# import numpy as np
-# import pickle
-# import matplotlib.pyplot as plt
-
-# path="../multi-station/consider station zero padding mask/mask after p_picking 3 sec/loss/target position not influence each other"
-# for i in range(20,40):
-#     train_file=f"{i} 75 epoch mdn_training loss_lr5e-05_batch_size32_earlystop oversample sort_picks"
-#     val_file=f"{i} 75 epoch mdn_validation loss_lr5e-05_batch_size32_earlystop oversample sort_picks"
-
-#     training_data=open(f"{path}/{train_file}", "rb")
-#     val_data=open(f"{path}/{val_file}", "rb")
-
-#     training_loss= pickle.load(training_data)
-#     validation_loss = pickle.load(val_data)
-
-#     training_loss=[loss.cpu().numpy() for loss in training_loss]
-#     validation_loss=[loss.cpu().numpy() for loss in validation_loss]
-
-#     fig,ax=plt.subplots(figsize=(7,7))
-
-
-#     ax.plot(np.arange(len(training_loss)),training_loss)
-#     ax.plot(np.arange(len(validation_loss)),validation_loss)
-#     ax.set_xlabel("epoch")
-#     ax.set_ylabel("MDN loss")
-#     # ax.set_ylim(-0.2,1)
-#     ax.set_title(f"multiple station model{i} loss, lr5e-05, epoch early stop")
-#     ax.legend(["train","validation"])
-#     plt.close()
-#     fig.savefig(f"{path}/model{i} loss curve.png")

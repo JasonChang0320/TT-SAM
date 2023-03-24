@@ -427,29 +427,29 @@ class full_model(nn.Module):
 
     def forward(self, data):
         CNN_output = self.model_CNN(
-            torch.DoubleTensor(data[0].reshape(-1, 6000, 3)).float().cuda()
+            torch.DoubleTensor(data["waveform"].reshape(-1, 6000, 3)).float().cuda()
         )
         CNN_output_reshape = torch.reshape(
             CNN_output, (-1, self.max_station, self.emb_dim)
         )
 
         emb_output = self.model_Position(
-            torch.DoubleTensor(data[1].reshape(-1, 1, 3)).float().cuda()
+            torch.DoubleTensor(data["sta"].reshape(-1, 1, 3)).float().cuda()
         )
         emb_output = emb_output.reshape(-1, self.max_station, self.emb_dim)
         # data[1] 做一個padding mask [batchsize, station number (25)], value: True, False (True: should mask)
-        station_pad_mask = data[1] == 0
+        station_pad_mask = data["sta"] == 0
         station_pad_mask = torch.all(station_pad_mask, 2)
 
         pga_pos_emb_output = self.model_Position(
-            torch.DoubleTensor(data[2].reshape(-1, 1, 3)).float().cuda()
+            torch.DoubleTensor(data["target"].reshape(-1, 1, 3)).float().cuda()
         )
         pga_pos_emb_output = pga_pos_emb_output.reshape(
             -1, self.pga_targets, self.emb_dim
         )
-        # data[2] 做一個padding mask [batchsize, PGA_target (15)], value: True, False (True: should mask)
+        # data["target"] 做一個padding mask [batchsize, PGA_target (15)], value: True, False (True: should mask)
         target_pad_mask = torch.ones_like(
-            data[2], dtype=torch.bool
+            data["target"], dtype=torch.bool
         )  # 避免 target position 在self-attention互相影響結果
         # target_pad_mask= data[2] ==0
         target_pad_mask = torch.all(target_pad_mask, 2)

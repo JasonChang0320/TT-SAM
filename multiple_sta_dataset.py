@@ -658,22 +658,32 @@ class multiple_station_dataset_new(Dataset):
             P_picks = np.array(P_picks)
             labels_time = np.array(labels_time)
         if self.mode == "train":
-            return Specific_waveforms, Stations_location, label_targets_location, labels
+            outputs = {
+                "waveform": Specific_waveforms,
+                "sta": Stations_location,
+                "target": label_targets_location,
+                "label": labels,
+            }
+            return outputs
+            # return Specific_waveforms, Stations_location, label_targets_location, labels
         else:
             P_picks = np.array(P_picks)
             labels_time = np.array(labels_time)
-            others_info = {
+            outputs = {
+                "waveform": Specific_waveforms,
+                "sta": Stations_location,
+                "target": label_targets_location,
+                "label": labels,
                 "EQ_ID": specific_index[0],
                 "p_picks": P_picks,
                 "pga_time": labels_time,
             }
-            return (
-                Specific_waveforms,
-                Stations_location,
-                label_targets_location,
-                labels,
-                others_info,
-            )
+            # others_info = {
+            #     "EQ_ID": specific_index[0],
+            #     "p_picks": P_picks,
+            #     "pga_time": labels_time,
+            # }
+            return outputs
 
 
 class CustomSubset(Subset):
