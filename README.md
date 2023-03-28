@@ -35,7 +35,7 @@ Calculate precision, recall, F1 score and calculate warthquake warning time
 
 ## Model performance
 
-![image](https://github.com/JasonChang0320/TEAM_Taiwan/blob/master/prediction%20images%20in%20readme/3%20sec%20intensity%20map.png)
-![image](https://github.com/JasonChang0320/TEAM_Taiwan/blob/master/prediction%20images%20in%20readme/3%20sec%20warning%20map.png)
+![image](prediction_images_in_readme/3_sec_intensity_map.png)
+![image](prediction_images_in_readme/3_sec_warning_map.png)
 
 
