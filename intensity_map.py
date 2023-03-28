@@ -135,24 +135,25 @@ fig, ax = warning_time_hist(
 # fig.savefig(f"{path}/precision and warning time map/EQID_{EQ_ID}/{mask_after_sec} sec warning stations hist.png",
 #             dpi=300)
 
+true_predict_filter = (prediction["predict"] > label_threshold) & (
+    (prediction["answer"] > label_threshold)
+)
+eq_id_filter = prediction["EQ_ID"] == EQ_ID
 fig, ax = true_predicted(
-    y_true=prediction[prediction["EQ_ID"] == EQ_ID]["answer"],
-    y_pred=prediction[prediction["EQ_ID"] == EQ_ID]["predict"],
+    y_true=prediction[eq_id_filter & ~true_predict_filter]["answer"],
+    y_pred=prediction[eq_id_filter & ~true_predict_filter]["predict"],
     time=mask_after_sec,
     quantile=False,
     agg="point",
     point_size=70,
     target="pgv",
 )
-true_predict_filter = (prediction["predict"] > label_threshold) & (
-    (prediction["answer"] > label_threshold)
-)
-eq_id_filter = prediction["EQ_ID"] == EQ_ID
 ax.scatter(
     prediction[eq_id_filter & true_predict_filter]["answer"],
     prediction[eq_id_filter & true_predict_filter]["predict"],
     s=70,
     c="red",
+    alpha=0.5,
 )
 # fig.savefig(f"{path}/precision and warning time map/EQID_{EQ_ID}/{mask_after_sec} sec true vs predict.png",
 #             dpi=300)
