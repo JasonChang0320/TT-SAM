@@ -18,7 +18,7 @@ from CNN_Transformer_Mixtureoutput_TEAM import (
 from multiple_sta_dataset import multiple_station_dataset, multiple_station_dataset_new
 from plot_predict_map import true_predicted
 
-mask_after_sec = 10
+mask_after_sec = 7
 label = "pgv"
 data = multiple_station_dataset_new(
     "D:/TEAM_TSMIP/data/TSMIP_filtered.hdf5",
@@ -31,7 +31,7 @@ data = multiple_station_dataset_new(
 )
 # =========================
 device = torch.device("cuda")
-for num in range(1, 13):  # [1,3,18,20]
+for num in range(1, 11):  # [1,3,18,20]
     path = f"./model/model{num}.pt"
     emb_dim = 150
     mlp_dims = (150, 100, 50, 30, 10)
@@ -52,24 +52,24 @@ for num in range(1, 13):  # [1,3,18,20]
     loader = DataLoader(dataset=data, batch_size=1)
 
     Mixture_mu = []
-    PGA = []
+    Label = []
     P_picks = []
     EQ_ID = []
-    PGA_time = []
+    Label_time = []
     Sta_name = []
     Lat = []
     Lon = []
     Elev = []
     for j, sample in tqdm(enumerate(loader)):
         picks = sample["p_picks"].flatten().numpy().tolist()
-        pga_time = sample["pga_time"].flatten().numpy().tolist()
+        label_time = sample[f"{label}_time"].flatten().numpy().tolist()
         lat = sample["target"][:, :, 0].flatten().tolist()
         lon = sample["target"][:, :, 1].flatten().tolist()
         elev = sample["target"][:, :, 2].flatten().tolist()
         P_picks.extend(picks)
         P_picks.extend([np.nan] * (25 - len(picks)))
-        PGA_time.extend(pga_time)
-        PGA_time.extend([np.nan] * (25 - len(pga_time)))
+        Label_time.extend(label_time)
+        Label_time.extend([np.nan] * (25 - len(label_time)))
         Lat.extend(lat)
         Lon.extend(lon)
         Elev.extend(elev)
@@ -84,22 +84,24 @@ for num in range(1, 13):  # [1,3,18,20]
         mu = mu.cpu()
         if j == 0:
             Mixture_mu = torch.sum(weight * mu, dim=2).cpu().detach().numpy()
-            PGA = sample["label"].cpu().detach().numpy()
+            Label = sample["label"].cpu().detach().numpy()
         else:
             Mixture_mu = np.concatenate(
                 [Mixture_mu, torch.sum(weight * mu, dim=2).cpu().detach().numpy()],
                 axis=1,
             )
-            PGA = np.concatenate([PGA, sample["label"].cpu().detach().numpy()], axis=1)
-    PGA = PGA.flatten()
+            Label = np.concatenate(
+                [Label, sample["label"].cpu().detach().numpy()], axis=1
+            )
+    Label = Label.flatten()
     Mixture_mu = Mixture_mu.flatten()
 
     output = {
         "EQ_ID": EQ_ID,
         "p_picks": P_picks,
-        "pga_time": PGA_time,
+        f"{label}_time": Label_time,
         "predict": Mixture_mu,
-        "answer": PGA,
+        "answer": Label,
         "latitude": Lat,
         "longitude": Lon,
         "elevation": Elev,
@@ -133,16 +135,17 @@ for num in range(1, 13):  # [1,3,18,20]
 #                 time=mask_after_sec,quantile=False,agg="point", point_size=12)
 
 # ensemble model prediction
-mask_after_sec = 3
+mask_after_sec = 10
 
-data2 = pd.read_csv(f"predict/model 2 {mask_after_sec} sec prediction.csv")
-data8 = pd.read_csv(f"predict/model 8 {mask_after_sec} sec prediction.csv")
+data8 = pd.read_csv(
+    f"predict/dis random sec predict pgv test 2016/model 8 {mask_after_sec} sec prediction.csv"
+)
 data12 = pd.read_csv(
-    f"predict/model 12 {mask_after_sec} sec prediction.csv"
+    f"predict/dis random sec predict pgv test 2016/model 12 {mask_after_sec} sec prediction.csv"
 )
 
 
-output_df = (data2 +data8 + data12) / 3
+output_df = (data8 + data12) / 2
 fig, ax = true_predicted(
     y_true=output_df["answer"],
     y_pred=output_df["predict"],
@@ -153,16 +156,31 @@ fig, ax = true_predicted(
     target=label,
 )
 
-output_df.to_csv(f"./predict/model2 8 12 {mask_after_sec} sec prediction.csv", index=False)
+output_df.to_csv(
+    f"./predict/model8 12 {mask_after_sec} sec prediction.csv", index=False
+)
 
-fig.savefig(f"./predict/model2 8 12 {mask_after_sec} sec.png")
+fig.savefig(f"./predict/model8 12 {mask_after_sec} sec.png")
 
 # plot each events prediction
-# output_df=(data1+data2+data3)/3
-# for eq_id in data.event_metadata["EQ_ID"]:
-#     fig,ax=true_predicted(y_true=output_df["answer"][output_df["EQ_ID"]==eq_id],y_pred=output_df["predict"][output_df["EQ_ID"]==eq_id],
-#                     time=mask_after_sec,quantile=False,agg="point", point_size=70)
-#     magnitude=data.event_metadata[data.event_metadata["EQ_ID"]==eq_id]["magnitude"].values[0]
-#     ax.set_title(f"{mask_after_sec}s True Predict Plot, EQ ID:{eq_id}, magnitude: {magnitude}",fontsize=20)
-#     plt.close()
-#     fig.savefig(f"./predict/random sec updated dataset and new data generator/ok model prediction/updated dataset plot each event {mask_after_sec} sec/EQ ID_{eq_id} magnitude_{magnitude}.png")
+for eq_id in data.event_metadata["EQ_ID"]:
+    fig, ax = true_predicted(
+        y_true=output_df["answer"][output_df["EQ_ID"] == eq_id],
+        y_pred=output_df["predict"][output_df["EQ_ID"] == eq_id],
+        time=mask_after_sec,
+        quantile=False,
+        agg="point",
+        point_size=70,
+        target=label,
+    )
+    magnitude = data.event_metadata[data.event_metadata["EQ_ID"] == eq_id][
+        "magnitude"
+    ].values[0]
+    ax.set_title(
+        f"{mask_after_sec}s True Predict Plot, EQ ID:{eq_id}, magnitude: {magnitude}",
+        fontsize=20,
+    )
+    plt.close()
+    fig.savefig(
+        f"./predict/dis random sec predict pgv test 2016/ok model prediction/updated dataset plot each event {mask_after_sec} sec/EQ ID_{eq_id} magnitude_{magnitude}.png"
+    )
