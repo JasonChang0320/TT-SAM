@@ -17,8 +17,12 @@ from scipy.interpolate import griddata
 
 class TaiwanIntensity:
     label = ["0", "1", "2", "3", "4", "5-", "5+", "6-", "6+", "7"]
-    pga = np.log10([1e-5, 0.008, 0.025, 0.080, 0.250, 0.80, 1.4, 2.5, 4.4, 8.0])
-    pgv = np.log10([1e-5, 0.002, 0.007, 0.019, 0.057, 0.15, 0.3, 0.5, 0.8, 1.4])
+    pga = np.log10(
+        [1e-5, 0.008, 0.025, 0.080, 0.250, 0.80, 1.4, 2.5, 4.4, 8.0]
+    )  # log10(m/s^2)
+    pgv = np.log10(
+        [1e-5, 0.002, 0.007, 0.019, 0.057, 0.15, 0.3, 0.5, 0.8, 1.4]
+    )  # log10(m/s)
 
     def __init__(self):
         self.pga_ticks = self.get_ticks(self.pga)
@@ -47,11 +51,12 @@ class TaiwanIntensity:
         return ticks
 
 
-def plot_pga_map(
+def plot_intensity_map(
     trace_info=None,
     eventmeta=None,
-    true_pga=None,
-    pred_pga=None,
+    label_type="pga",
+    true_label=None,
+    pred_label=None,
     center=None,
     pad=None,
     sec=None,
@@ -82,7 +87,12 @@ def plot_pga_map(
             "#b51fea",
         ]
     )
-    norm = mpl.colors.BoundaryNorm(intensity.pga, cmap.N)
+    if label_type == "pga":
+        norm = mpl.colors.BoundaryNorm(intensity.pga, cmap.N)
+        intensity_ticks = intensity.pga_ticks
+    if label_type == "pgv":
+        norm = mpl.colors.BoundaryNorm(intensity.pgv, cmap.N)
+        intensity_ticks = intensity.pgv_ticks
 
     numcols, numrows = 100, 200
     xi = np.linspace(
@@ -93,7 +103,7 @@ def plot_pga_map(
 
     grid_pred = griddata(
         (trace_info["longitude"], trace_info["latitude"]),
-        pred_pga,
+        pred_label,
         (xi, yi),
         method=grid_method,
     )
@@ -105,7 +115,7 @@ def plot_pga_map(
     sta = ax_map.scatter(
         trace_info["longitude"],
         trace_info["latitude"],
-        c=true_pga,
+        c=true_label,
         cmap=cmap,
         norm=norm,
         edgecolors="k",
@@ -191,9 +201,11 @@ def plot_pga_map(
     if title:
         ax_map.set_title(title)
     else:
-        ax_map.set_title(f"EQ ID: {EQ_ID} {sec} sec Predicted PGA Intensity Map")
+        ax_map.set_title(
+            f"EQ ID: {EQ_ID} {sec} sec Predicted {label_type} Intensity Map"
+        )
     cbar = plt.colorbar(sta, extend="both")
-    cbar.set_ticks(intensity.pga_ticks)
+    cbar.set_ticks(intensity_ticks)
     cbar.set_ticklabels(intensity.label)
     cbar.set_label("Seismic Intensity")
     plt.legend()
@@ -209,28 +221,30 @@ def plot_pga_map(
 def warning_map(
     trace_info=None,
     eventmeta=None,
+    label_type="pga",
+    intensity="IV",
     EQ_ID=None,
     sec=None,
-    pga_threshold=None,
+    label_threshold=None,
     title=None,
     Pwave_vel=6.5,
     Swave_vel=3.5,
 ):
-    true_warn_filter = (trace_info["predict"] > pga_threshold) & (
-        (trace_info["answer"] > pga_threshold)
+    true_warn_filter = (trace_info["predict"] > label_threshold) & (
+        (trace_info["answer"] > label_threshold)
     )
-    true_not_warn_filter = (trace_info["predict"] <= pga_threshold) & (
-        (trace_info["answer"] <= pga_threshold)
+    true_not_warn_filter = (trace_info["predict"] <= label_threshold) & (
+        (trace_info["answer"] <= label_threshold)
     )
-    loss_warn_filter = (trace_info["predict"] <= pga_threshold) & (
-        (trace_info["answer"] > pga_threshold)
+    loss_warn_filter = (trace_info["predict"] <= label_threshold) & (
+        (trace_info["answer"] > label_threshold)
     )
-    wrong_warn_filter = (trace_info["predict"] > pga_threshold) & (
-        (trace_info["answer"] <= pga_threshold)
+    wrong_warn_filter = (trace_info["predict"] > label_threshold) & (
+        (trace_info["answer"] <= label_threshold)
     )
     predict_filter = [true_not_warn_filter, loss_warn_filter, wrong_warn_filter]
 
-    title = f"EQ_ID: {EQ_ID}, {sec} sec performance, warning threshold: IV"
+    title = f"EQ_ID: {EQ_ID}, {sec} sec performance, warning threshold: {intensity}"
     src_crs = ccrs.PlateCarree()
     fig, ax_map = plt.subplots(subplot_kw={"projection": src_crs}, figsize=(7, 7))
 
@@ -248,7 +262,7 @@ def warning_map(
     )  # zorder越大的圖層 越上面
 
     sta_num = len(trace_info[true_warn_filter])
-    warning_time = trace_info[true_warn_filter]["pga_time"] / 200 - (sec + 5)
+    warning_time = trace_info[true_warn_filter][f"{label_type}_time"] / 200 - (sec + 5)
 
     cvals = [0, warning_time.mean(), warning_time.max()]
     colors = ["white", "orange", "red"]
@@ -474,20 +488,22 @@ def warning_time_hist(
     EQ_ID=None,
     warning_mag_threshold=None,
     bins=20,
-    pga_threshold=np.log10(9.8 * 0.025),
+    label_threshold=None,
+    label_type="pga",
     sampling_rate=200,
     first_pick_sec=5,
 ):
     prediction = pd.merge(prediction, catalog, how="left", on="EQ_ID")
     warning_time_filter = (
-        prediction["pga_time"] > (first_pick_sec + mask_after_sec) * sampling_rate
+        prediction[f"{label_type}_time"]
+        > (first_pick_sec + mask_after_sec) * sampling_rate
     )
     magnitude_filter = prediction["magnitude"] >= warning_mag_threshold
 
     prediction_for_warning = prediction[warning_time_filter & magnitude_filter]
 
     warning_time = (
-        prediction_for_warning["pga_time"]
+        prediction_for_warning[f"{label_type}_time"]
         - ((first_pick_sec + mask_after_sec) * sampling_rate)
     ) / sampling_rate
     prediction_for_warning.insert(5, "warning_time (sec)", warning_time)
@@ -496,11 +512,11 @@ def warning_time_hist(
         eq_id_filter = prediction_for_warning["EQ_ID"] == EQ_ID
         prediction_for_warning = prediction_for_warning[eq_id_filter]
 
-    true_predict_filter = (prediction_for_warning["predict"] > pga_threshold) & (
-        (prediction_for_warning["answer"] > pga_threshold)
+    true_predict_filter = (prediction_for_warning["predict"] > label_threshold) & (
+        (prediction_for_warning["answer"] > label_threshold)
     )
-    positive_filter = prediction_for_warning["predict"] > pga_threshold
-    true_filter = prediction_for_warning["answer"] > pga_threshold
+    positive_filter = prediction_for_warning["predict"] > label_threshold
+    true_filter = prediction_for_warning["answer"] > label_threshold
 
     fig, ax = plt.subplots(figsize=(7, 7))
     ax.hist(
@@ -553,18 +569,23 @@ def warning_time_hist(
 def correct_warning_with_epidist(
     event_prediction=None,
     mask_after_sec=None,
-    pga_threshold=np.log10(9.8 * 0.025),
+    label_type="pga",
+    label_threshold=None,
     sampling_rate=200,
     first_pick_sec=5,
 ):
     EQ_ID = int(event_prediction["EQ_ID"][0])
     fig, ax = plt.subplots()
     true_warning_prediction = event_prediction.query(
-        f"predict > {pga_threshold} and answer > {pga_threshold}"
+        f"predict > {label_threshold} and answer > {label_threshold}"
     )
-    pga_time = true_warning_prediction["pga_time"] / sampling_rate - first_pick_sec
+    pga_time = (
+        true_warning_prediction[f"{label_type}_time"] / sampling_rate - first_pick_sec
+    )
     pick_time = true_warning_prediction["p_picks"] / sampling_rate - first_pick_sec
-    ax.scatter(true_warning_prediction["epdis (km)"], pga_time, label="pga_time")
+    ax.scatter(
+        true_warning_prediction["epdis (km)"], pga_time, label=f"{label_type}_time"
+    )
     ax.scatter(true_warning_prediction["epdis (km)"], pick_time, label="P arrival")
     ax.axhline(
         y=mask_after_sec,
