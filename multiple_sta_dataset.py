@@ -676,7 +676,7 @@ class multiple_station_dataset_new(Dataset):
                 "label": labels,
                 "EQ_ID": specific_index[0],
                 "p_picks": P_picks,
-                "pga_time": labels_time,
+                f"{self.label}_time": labels_time,
             }
             # others_info = {
             #     "EQ_ID": specific_index[0],
