@@ -313,14 +313,18 @@ import numpy as np
 import pandas as pd
 
 
-class pgv_intensity_classifier:
-    def __init__(self):
-        self.threshold = np.log10([0.002, 0.007, 0.019, 0.057, 0.15, 0.5, 1.4, 20])
-        self.label = [0, 1, 2, 3, 4, 5, 6, 7]
+class intensity_classifier:
+    def __init__(self, label=None):
+        if label == "pga":
+            self.threshold = np.log10([0.008, 0.025, 0.08, 0.25, 0.8, 2.5, 8])
+            self.label = [0, 1, 2, 3, 4, 5, 6, 7]
+        if label == "pgv":
+            self.threshold = np.log10([0.002, 0.007, 0.019, 0.057, 0.15, 0.5, 1.4])
+            self.label = [0, 1, 2, 3, 4, 5, 6, 7]
 
     def classify(self, input_array):
         output_array = np.zeros_like(input_array)
-        for i in range(1, len(input_array)):
+        for i in range(len(input_array)):
             if input_array[i] < self.threshold[0]:
                 output_array[i] = self.label[0]
             elif input_array[i] < self.threshold[1]:
@@ -335,7 +339,7 @@ class pgv_intensity_classifier:
                 output_array[i] = self.label[5]
             elif input_array[i] < self.threshold[6]:
                 output_array[i] = self.label[6]
-            elif input_array[i] < self.threshold[7]:
+            elif input_array[i] >= self.threshold[6]:
                 output_array[i] = self.label[7]
         return output_array
 
@@ -362,7 +366,6 @@ class multiple_station_dataset_new(Dataset):
         oversample_by_labels=False,
         mag_threshold=0,
         weight_label=False,
-        classifier=pgv_intensity_classifier(),
     ):
         event_metadata = pd.read_hdf(data_path, "metadata/event_metadata")
         trace_metadata = pd.read_hdf(data_path, "metadata/traces_metadata")
@@ -494,10 +497,13 @@ class multiple_station_dataset_new(Dataset):
             p_picks = np.concatenate((p_picks, oversampled_picks), axis=0)
         if weight_label:
             labels = labels.flatten()
-            classifier = pgv_intensity_classifier()
+            classifier = intensity_classifier(label=label_key)
             output_array = classifier.classify(labels)
             label_class, counts = np.unique(output_array, return_counts=True)
-            samples_weight = np.array([1 / counts[int(i)] for i in output_array])
+            label_counts = {}
+            for i, label in enumerate(label_class):
+                label_counts[int(label)] = counts[i]
+            samples_weight = np.array([1 / label_counts[int(i)] for i in output_array])
 
         Events_index = []
         Weight = []
@@ -665,7 +671,6 @@ class multiple_station_dataset_new(Dataset):
                 "label": labels,
             }
             return outputs
-            # return Specific_waveforms, Stations_location, label_targets_location, labels
         else:
             P_picks = np.array(P_picks)
             labels_time = np.array(labels_time)
@@ -701,8 +706,16 @@ class CustomSubset(Subset):
         return len(self.indices)
 
 
-# origin_data=multiple_station_dataset_new("D:/TEAM_TSMIP/data/TSMIP_filtered.hdf5",mode="train",mask_waveform_sec=3,
-#                                                 oversample=1,oversample_mag=4,input_type="vel",label_key="pgv",weight_label=True)
+# origin_data = multiple_station_dataset_new(
+#     "D:/TEAM_TSMIP/data/TSMIP_filtered.hdf5",
+#     mode="train",
+#     mask_waveform_sec=3,
+#     oversample=1,
+#     oversample_mag=4,
+#     input_type="acc",
+#     label_key="pgv",
+#     weight_label=True,
+# )
 # train_set_size = int(len(origin_data) * 0.8)
 # valid_set_size = len(origin_data) - train_set_size
 # indice=np.arange(len(origin_data))
