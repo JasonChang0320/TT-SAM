@@ -12,3 +12,7 @@
 #training
 /model
 /predict
+
+/multi_input_predict_pga_and_pgv/__pycache__
+/multi_input_predict_pga_and_pgv/mlruns
+/multi_input_predict_pga_and_pgv/model
