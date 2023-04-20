@@ -66,6 +66,7 @@ class CNN(nn.Module):
         input_shape=(-1, 6000, 3),
         activation=nn.ReLU(),
         downsample=1,
+        mlp_input=11665,
         mlp_dims=(500, 300, 200, 150),
         eps=1e-8,
     ):
@@ -73,6 +74,7 @@ class CNN(nn.Module):
         self.input_shape = input_shape
         self.activation = activation
         self.downsample = downsample
+        self.mlp_input = mlp_input
         self.mlp_dims = mlp_dims
         self.eps = eps
 
@@ -111,7 +113,7 @@ class CNN(nn.Module):
         self.conv1d3 = nn.Sequential(nn.Conv1d(128, 32, kernel_size=8), nn.ReLU())
         self.conv1d4 = nn.Sequential(nn.Conv1d(32, 32, kernel_size=8), nn.ReLU())
         self.conv1d5 = nn.Sequential(nn.Conv1d(32, 16, kernel_size=4), nn.ReLU())
-        self.mlp = MLP((11665,), dims=self.mlp_dims)
+        self.mlp = MLP((self.mlp_input,), dims=self.mlp_dims)
 
     def forward(self, x):
         # print("intitial shape", x.size())
@@ -127,7 +129,6 @@ class CNN(nn.Module):
         output = self.conv2d2(output)
         # print(output.shape)
         output = torch.squeeze(output, dim=-1)
-        # print(output.shape)
         output = self.conv1d1(output)
         output = self.maxpooling(output)
         output = self.conv1d2(output)
@@ -146,66 +147,10 @@ class CNN(nn.Module):
         return output
 
 
-# model = CNN().cuda()
-# CNN_input = torch.Tensor(np.random.rand(27000)*100).reshape(-1, 3000, 3).cuda()
+# model = CNN(mlp_input=3665).cuda()
+# CNN_input = torch.Tensor(np.random.rand(18000)*100).reshape(-1, 2000, 3).cuda()
 # model(CNN_input)
 # summary(model, (3000, 3))
-
-
-class CNN_example(nn.Module):
-    def __init__(self):
-        super(CNN_example, self).__init__()
-        # Convolution 1 , input_shape=(1,3000,3)
-        self.cnn1 = nn.Conv2d(1, 16, kernel_size=(1, 1), stride=(1, 1))
-        self.relu1 = nn.ReLU()  # activation
-        # Max pool 1
-        self.maxpool1 = nn.MaxPool2d(kernel_size=2)
-
-        # Convolution 2
-        self.cnn2 = nn.Conv1d(
-            in_channels=16, out_channels=8, kernel_size=1, stride=1, padding=0
-        )
-        self.relu2 = nn.ReLU()  # activation
-        # Max pool 2
-        self.maxpool2 = nn.MaxPool1d(kernel_size=3)
-        # Convolution 3
-        self.cnn3 = nn.Conv1d(
-            in_channels=8, out_channels=2, kernel_size=1, stride=1, padding=0
-        )
-        self.relu3 = nn.ReLU()  # activation
-        # Max pool 3
-        self.maxpool3 = nn.MaxPool1d(kernel_size=2)
-        # Fully connected 1 ,#input_shape=(32*4*4)
-        self.fc1 = nn.Linear(2 * 250, 16)
-        self.fc2 = nn.Linear(16, 8)
-        self.fc3 = nn.Linear(8, 1)
-
-    def forward(self, x):
-        # Convolution 1
-        out = self.cnn1(x)
-        out = self.relu1(out)
-        # Max pool 1
-        out = self.maxpool1(out)
-        out = torch.squeeze(out, dim=-1)
-        # Convolution 2
-        out = self.cnn2(out)
-        out = self.relu2(out)
-        # # Max pool 2
-        out = self.maxpool2(out)
-        out = self.cnn3(out)
-        out = self.relu3(out)
-        out = self.maxpool3(out)
-        # out = out.view(out.size(0), -1)
-        # # Linear function (readout)
-        # out = self.fc1(out)
-        # out = self.fc2(out)
-        # out = self.fc3(out)
-        return out
-
-
-# sample=CNN_example().cuda()
-# CNN_output = sample(torch.Tensor(np.random.randn(3000*3*250).reshape(-1,1, 3000, 3)).cuda())
-# print("CNN_output: ", CNN_output.shape)
 
 
 class PositionEmbedding(nn.Module):  # paper page11 B.2
@@ -414,8 +359,10 @@ class full_model(nn.Module):
         max_station=25,
         pga_targets=15,
         emb_dim=150,
+        data_length=6000,
     ):
         super(full_model, self).__init__()
+        self.data_length = data_length
         self.model_CNN = model_CNN
         self.model_Position = model_Position
         self.model_Transformer = model_Transformer
@@ -427,7 +374,9 @@ class full_model(nn.Module):
 
     def forward(self, data):
         CNN_output = self.model_CNN(
-            torch.DoubleTensor(data["waveform"].reshape(-1, 6000, 3)).float().cuda()
+            torch.DoubleTensor(data["waveform"].reshape(-1, self.data_length, 3))
+            .float()
+            .cuda()
         )
         CNN_output_reshape = torch.reshape(
             CNN_output, (-1, self.max_station, self.emb_dim)
