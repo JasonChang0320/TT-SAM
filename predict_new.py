@@ -15,23 +15,24 @@ from CNN_Transformer_Mixtureoutput_TEAM import (
     TransformerEncoder,
     full_model,
 )
-from multiple_sta_dataset import multiple_station_dataset, multiple_station_dataset_new
+from multiple_sta_dataset import multiple_station_dataset
 from plot_predict_map import true_predicted
 
-mask_after_sec = 7
-label = "pgv"
-data = multiple_station_dataset_new(
+mask_after_sec = 3
+label = "pga"
+data = multiple_station_dataset(
     "D:/TEAM_TSMIP/data/TSMIP_filtered.hdf5",
     mode="test",
     mask_waveform_sec=mask_after_sec,
     test_year=2016,
     label_key=label,
     mag_threshold=0,
-    input_type="dis",
+    input_type="acc",
+    data_length_sec=30,
 )
 # =========================
 device = torch.device("cuda")
-for num in range(1, 11):  # [1,3,18,20]
+for num in [26]:  # [4,6,11,13,14,15,19,21,26,28,30]
     path = f"./model/model{num}.pt"
     emb_dim = 150
     mlp_dims = (150, 100, 50, 30, 10)
@@ -47,6 +48,7 @@ for num in range(1, 11):  # [1,3,18,20]
         mlp_model,
         mdn_model,
         pga_targets=25,
+        data_length=6000,
     ).to(device)
     full_Model.load_state_dict(torch.load(path))
     loader = DataLoader(dataset=data, batch_size=1)
@@ -77,6 +79,18 @@ for num in range(1, 11):  # [1,3,18,20]
         eq_id = sample["EQ_ID"][:, :, 0].flatten().numpy().tolist()
         EQ_ID.extend(eq_id)
         EQ_ID.extend([np.nan] * (25 - len(eq_id)))
+    #     if eq_id[0]==24784:
+    #         waveform=sample["waveform"].numpy().reshape(25,6000,3)
+    #         fig,ax=plt.subplots(25,1,figsize=(14,7))
+    #         for i in range(waveform.shape[0]):
+    #             ax[i].plot(waveform[i,:,:])
+    #             fig_1,ax_1=plt.subplots(figsize=(14,7))
+    #             ax_1.plot(waveform[i,:,:])
+    #             ax_1.set_title(f"index:{i}")
+    #             fig_1.savefig(f"./predict/eq_id_{eq_id[0]}_predict/{mask_after_sec}_sec_model input index_{i}")
+    #         fig.savefig(f"./predict/eq_id_{eq_id[0]}_predict/{mask_after_sec}_sec_model inputs")
+    #         break
+    # break
         weight, sigma, mu = full_Model(sample)
 
         weight = weight.cpu()
@@ -108,9 +122,9 @@ for num in range(1, 11):  # [1,3,18,20]
     }
     output_df = pd.DataFrame(output)
     output_df = output_df[output_df["answer"] != 0]
-    output_df.to_csv(
-        f"./predict/model {num} {mask_after_sec} sec prediction.csv", index=False
-    )
+    # output_df.to_csv(
+    #     f"./predict/model {num} {mask_after_sec} sec prediction.csv", index=False
+    # )
     fig, ax = true_predicted(
         y_true=output_df["answer"],
         y_pred=output_df["predict"],
@@ -120,8 +134,20 @@ for num in range(1, 11):  # [1,3,18,20]
         point_size=12,
         target=label,
     )
+    eq_id=24784
+    ax.scatter(output_df["answer"][output_df["EQ_ID"] == eq_id],
+        output_df["predict"][output_df["EQ_ID"] == eq_id],
+        c="r")
+    magnitude = data.event_metadata[data.event_metadata["EQ_ID"] == eq_id][
+        "magnitude"
+    ].values[0]
+    ax.set_title(
+        f"{mask_after_sec}s True Predict Plot, EQ ID:{eq_id}, magnitude: {magnitude}",
+        fontsize=20,
+    )
 
-    fig.savefig(f"./predict/model{num} {mask_after_sec} sec.png")
+    # fig.savefig(f"./predict/model{num} {mask_after_sec} sec.png")
+    
 # input_waveform_picks=np.array(data[31][4])[np.array(data[31][4])<np.array(data[31][4])[0]+mask_after_sec*200]
 # wav_fig,ax=plt.subplots(len(input_waveform_picks),1,figsize=(14,7))
 # for i in range(0,len(input_waveform_picks)):
@@ -137,15 +163,18 @@ for num in range(1, 11):  # [1,3,18,20]
 # ensemble model prediction
 mask_after_sec = 10
 
-data8 = pd.read_csv(
-    f"predict/dis random sec predict pgv test 2016/model 8 {mask_after_sec} sec prediction.csv"
+data4 = pd.read_csv(
+    f"predict/model 4 {mask_after_sec} sec prediction.csv"
 )
-data12 = pd.read_csv(
-    f"predict/dis random sec predict pgv test 2016/model 12 {mask_after_sec} sec prediction.csv"
+# data4 = pd.read_csv(
+#     f"predict/model 4 {mask_after_sec} sec prediction.csv"
+# )
+data26 = pd.read_csv(
+    f"predict/model 6 {mask_after_sec} sec prediction.csv"
 )
 
 
-output_df = (data8 + data12) / 2
+output_df = (data4+data26)/2
 fig, ax = true_predicted(
     y_true=output_df["answer"],
     y_pred=output_df["predict"],
@@ -157,30 +186,48 @@ fig, ax = true_predicted(
 )
 
 output_df.to_csv(
-    f"./predict/model8 12 {mask_after_sec} sec prediction.csv", index=False
+    f"./predict/model4 26 {mask_after_sec} sec prediction.csv", index=False
 )
 
-fig.savefig(f"./predict/model8 12 {mask_after_sec} sec.png")
+fig.savefig(f"./predict/model4 26 {mask_after_sec} sec.png")
 
-# plot each events prediction
+# mask_after_sec = 7
+# for i in [4,6,11,13,14,15,19,21,26,28,30]:
+#     output_df= pd.read_csv(
+#         f"predict/model {i} {mask_after_sec} sec prediction.csv"
+#     )
+    # plot each events prediction
 for eq_id in data.event_metadata["EQ_ID"]:
-    fig, ax = true_predicted(
-        y_true=output_df["answer"][output_df["EQ_ID"] == eq_id],
-        y_pred=output_df["predict"][output_df["EQ_ID"] == eq_id],
-        time=mask_after_sec,
-        quantile=False,
-        agg="point",
-        point_size=70,
-        target=label,
-    )
-    magnitude = data.event_metadata[data.event_metadata["EQ_ID"] == eq_id][
-        "magnitude"
-    ].values[0]
-    ax.set_title(
-        f"{mask_after_sec}s True Predict Plot, EQ ID:{eq_id}, magnitude: {magnitude}",
-        fontsize=20,
-    )
-    plt.close()
-    fig.savefig(
-        f"./predict/dis random sec predict pgv test 2016/ok model prediction/updated dataset plot each event {mask_after_sec} sec/EQ ID_{eq_id} magnitude_{magnitude}.png"
-    )
+    if eq_id==24784:
+        fig, ax = true_predicted(
+            y_true=output_df["answer"],
+            y_pred=output_df["predict"],
+            time=mask_after_sec,
+            quantile=False,
+            agg="point",
+            point_size=12,
+            target=label,
+        )
+        ax.scatter(output_df["answer"][output_df["EQ_ID"] == eq_id],
+                output_df["predict"][output_df["EQ_ID"] == eq_id],
+                c="r")
+        # fig, ax = true_predicted(
+        #     y_true=output_df["answer"][output_df["EQ_ID"] == eq_id],
+        #     y_pred=output_df["predict"][output_df["EQ_ID"] == eq_id],
+        #     time=mask_after_sec,
+        #     quantile=False,
+        #     agg="point",
+        #     point_size=70,
+        #     target=label,
+        # )
+        magnitude = data.event_metadata[data.event_metadata["EQ_ID"] == eq_id][
+            "magnitude"
+        ].values[0]
+        ax.set_title(
+            f"{mask_after_sec}s True Predict Plot, EQ ID:{eq_id}, magnitude: {magnitude}",
+            fontsize=20,
+        )
+        plt.close()
+        fig.savefig(
+            f"./predict/eq_id_{eq_id}_predict/model4 26_{mask_after_sec}_EQID_{eq_id} magnitude_{magnitude}.png"
+        )
