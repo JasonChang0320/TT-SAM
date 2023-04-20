@@ -15,18 +15,19 @@ from CNN_Transformer_Mixtureoutput_TEAM import (
     MLP,
     PositionEmbedding,
     TransformerEncoder,
-    full_model,
-    mdn_loss_fn,
+    full_model
 )
-from multiple_sta_dataset import CustomSubset, multiple_station_dataset_new
+from multiple_sta_dataset import CustomSubset, multiple_station_dataset
 
 
 def train_process(
     full_Model, optimizer, hyper_param, num_of_gaussian=5, train_data_size=0.8
 ):
-    experiment = mlflow.get_experiment_by_name("dis predict PGV")
+    experiment = mlflow.get_experiment_by_name(
+        "ensemble model acc predict PGA, test 2016"
+    )
     with mlflow.start_run(
-        run_name="TSMIP_EEW_random_sec", experiment_id=experiment.experiment_id
+        run_name="TSMIP_EEW_random_sec_dis", experiment_id=experiment.experiment_id
     ) as run:
         log_params(
             {
@@ -40,44 +41,30 @@ def train_process(
         cudnn.benchmark = True
         # full_data=multiple_station_dataset("D:/TEAM_TSMIP/data/TSMIP_new.hdf5",train_mode=True,oversample=1.5,
         #                                         mask_waveform_sec=3,test_year=2018)
-        full_data = multiple_station_dataset_new(
+        full_data = multiple_station_dataset(
             "D:/TEAM_TSMIP/data/TSMIP_filtered.hdf5",
             mode="train",
             mask_waveform_sec=3,
-            weight_label=True,
-            oversample=1,
+            weight_label=False,
+            oversample=1.5,
             test_year=2016,
             mask_waveform_random=True,
-            label_key="pgv",
-            input_type="dis",
+            label_key="pga",
+            input_type="acc",
+            data_length_sec=10,
         )
 
         train_set_size = int(len(full_data) * train_data_size)
         valid_set_size = len(full_data) - train_set_size
         torch.manual_seed(0)
         # for pga training
-        # train_dataset, val_dataset = random_split(full_data, [train_set_size, valid_set_size])
-        # train_loader=DataLoader(dataset=train_dataset,batch_size=hyper_param["batch_size"],shuffle=True,pin_memory=True,num_workers=5,drop_last=True)
-        # valid_loader=DataLoader(dataset=val_dataset,batch_size=hyper_param["batch_size"],shuffle=True,pin_memory=True,num_workers=5,drop_last=True)
-
-        # for pgv training
-        indice = np.arange(len(full_data))
-        np.random.seed(0)
-        np.random.shuffle(indice)
-        train_indice, valid_indice = np.array_split(indice, [train_set_size])
-        train_dataset = CustomSubset(full_data, train_indice)
-        val_dataset = CustomSubset(full_data, valid_indice)
-
-        train_sampler = WeightedRandomSampler(
-            weights=train_dataset.weight,
-            num_samples=len(train_dataset),
-            replacement=True,
+        train_dataset, val_dataset = random_split(
+            full_data, [train_set_size, valid_set_size]
         )
         train_loader = DataLoader(
             dataset=train_dataset,
             batch_size=hyper_param["batch_size"],
-            sampler=train_sampler,
-            shuffle=False,
+            shuffle=True,
             pin_memory=True,
             num_workers=5,
             drop_last=True,
@@ -90,6 +77,36 @@ def train_process(
             num_workers=5,
             drop_last=True,
         )
+        # for pgv training
+        # indice = np.arange(len(full_data))
+        # np.random.seed(0)
+        # np.random.shuffle(indice)
+        # train_indice, valid_indice = np.array_split(indice, [train_set_size])
+        # train_dataset = CustomSubset(full_data, train_indice)
+        # val_dataset = CustomSubset(full_data, valid_indice)
+
+        # train_sampler = WeightedRandomSampler(
+        #     weights=train_dataset.weight,
+        #     num_samples=len(train_dataset),
+        #     replacement=True,
+        # )
+        # train_loader = DataLoader(
+        #     dataset=train_dataset,
+        #     batch_size=hyper_param["batch_size"],
+        #     sampler=train_sampler,
+        #     shuffle=False,
+        #     pin_memory=True,
+        #     num_workers=5,
+        #     drop_last=True,
+        # )
+        # valid_loader = DataLoader(
+        #     dataset=val_dataset,
+        #     batch_size=hyper_param["batch_size"],
+        #     shuffle=True,
+        #     pin_memory=True,
+        #     num_workers=5,
+        #     drop_last=True,
+        # )
 
         gaussian_loss = nn.GaussianNLLLoss(reduction="none")
         training_loss = []
@@ -173,10 +190,6 @@ def train_process(
 
                 if trigger_times >= patience:
                     print(f"Early stopping! stop at epoch: {epoch}")
-                    path = "./model"
-                    model_file = f"{path}/model{hyper_param['model_index']}.pt"
-                    torch.save(full_Model.state_dict(), model_file)
-                    log_artifact(model_file)
                     with open(
                         f"{path}/train loss{hyper_param['model_index']}", "wb"
                     ) as fp:
@@ -190,13 +203,17 @@ def train_process(
                             f"{path}/validation loss{hyper_param['model_index']}"
                         )
                     log_param("epoch early stop", epoch)
-                    return full_Model, training_loss, validation_loss
+                    return training_loss, validation_loss
 
                 continue
 
             else:
                 print("trigger 0 time")
                 trigger_times = 0
+                path = "./model"
+                model_file = f"{path}/model{hyper_param['model_index']}.pt"
+                torch.save(full_Model.state_dict(), model_file)
+                log_artifact(model_file)
 
             the_last_loss = current_loss
         print(
@@ -204,18 +221,6 @@ def train_process(
                 epoch + 1, hyper_param["num_epochs"], train_loss.data, val_loss.data
             )
         )
-        path = "./model"
-        model_file = f"{path}/model{hyper_param['model_index']}.pt"
-        torch.save(full_Model.state_dict(), model_file)
-        log_artifact(model_file)
-        with open(f"{path}/train loss{hyper_param['model_index']}", "wb") as fp:
-            pickle.dump(training_loss, fp)
-            log_artifact(f"{path}/train loss{hyper_param['model_index']}")
-        with open(f"{path}/validation loss{hyper_param['model_index']}", "wb") as fp:
-            pickle.dump(validation_loss, fp)
-            log_artifact(f"{path}/validation loss{hyper_param['model_index']}")
-            log_param("no early stop", epoch + 1)
-    return full_Model, training_loss, validation_loss
 
 
 if __name__ == "__main__":
@@ -223,9 +228,9 @@ if __name__ == "__main__":
     model_index = 0
     num_epochs = 100
     # batch_size=16
-    for batch_size in [32]:
-        for LR in [1e-5, 5e-5]:
-            for i in range(5):
+    for batch_size in [16]:
+        for LR in [5e-5]:
+            for i in range(3):
                 model_index += 1
                 hyper_param = {
                     "model_index": model_index,
@@ -238,7 +243,7 @@ if __name__ == "__main__":
                 emb_dim = 150
                 mlp_dims = (150, 100, 50, 30, 10)
 
-                CNN_model = CNN().cuda()
+                CNN_model = CNN(mlp_input=3665).cuda()
                 pos_emb_model = PositionEmbedding(emb_dim=emb_dim).cuda()
                 transformer_model = TransformerEncoder()
                 mlp_model = MLP(input_shape=(emb_dim,), dims=mlp_dims).cuda()
@@ -251,6 +256,7 @@ if __name__ == "__main__":
                     mlp_model,
                     mdn_model,
                     pga_targets=25,
+                    data_length=2000,
                 )
 
                 optimizer = torch.optim.Adam(
@@ -262,7 +268,7 @@ if __name__ == "__main__":
                     ],
                     lr=LR,
                 )
-                full_Model, training_loss, validation_loss = train_process(
+                training_loss, validation_loss = train_process(
                     full_Model, optimizer, hyper_param
                 )
             # save model
