@@ -48,6 +48,8 @@ class multiple_station_dataset_outputs(Dataset):
         test_year=2018,
         mode="train",
         limit=None,
+        oversample=1,
+        oversample_mag=4,
         input_type=["acc", "vel", "dis"],
         label_keys=["pga", "pgv"],
         mask_waveform_sec=None,
@@ -135,6 +137,20 @@ class multiple_station_dataset_outputs(Dataset):
         stations = np.expand_dims(np.expand_dims(stations, axis=1), axis=2)
         p_picks = picks[mask]
         stations = stations[mask]
+        if oversample > 1:
+            oversampled_catalog = []
+            filter = event_metadata["magnitude"] >= oversample_mag
+            oversample_catalog = np.intersect1d(
+                np.array(event_metadata[filter]["EQ_ID"].values), ok_events_index
+            )
+            for eventid in oversample_catalog:
+                catch_mag = event_metadata["EQ_ID"] == eventid
+                mag = event_metadata[catch_mag]["magnitude"]
+                repeat_time = int(oversample ** (mag - 1) - 1)
+                oversampled_catalog.extend(repeat(eventid, repeat_time))
+
+            oversampled_catalog = np.array(oversampled_catalog)
+            ok_event_id = np.concatenate([ok_event_id, oversampled_catalog])
         samples_weight = []
         for label_key in label_keys:
             labels = np.concatenate(data[label_key], axis=0)

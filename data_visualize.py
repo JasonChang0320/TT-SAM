@@ -12,7 +12,6 @@ from tqdm import tqdm
 
 from multiple_sta_dataset import (
     CustomSubset,
-    multiple_station_dataset,
     multiple_station_dataset_new,
 )
 
@@ -136,40 +135,40 @@ origin_data = multiple_station_dataset_new(
     mask_waveform_sec=3,
     oversample=1,
     oversample_mag=4,
-    input_type="vel",
-    label_key="pgv",
+    input_type="acc",
+    label_key="pga",
 )
 new_data = multiple_station_dataset_new(
     "D:/TEAM_TSMIP/data/TSMIP_filtered.hdf5",
     mode="train",
     mask_waveform_sec=3,
-    oversample=1,
+    oversample=1.5,
     oversample_mag=4,
-    input_type="vel",
-    label_key="pgv",
-    weight_label=True,
+    input_type="acc",
+    label_key="pga",
+    weight_label=False,
 )
 # oversample_data=multiple_station_dataset_new("D:/TEAM_TSMIP/data/TSMIP.hdf5",train_mode=True,mask_waveform_sec=5,oversample=1.5,oversample_mag=5)
 pre1 = pd.read_csv(
     f"./predict/2016 data model3 3 sec 1 triggered station prediction.csv"
 )
 
-train_set_size = int(len(new_data) * 0.8)
-valid_set_size = len(new_data) - train_set_size
-indice = np.arange(len(new_data))
-np.random.seed(0)
-np.random.shuffle(indice)
-train_indice, test_indice = np.array_split(indice, [train_set_size])
-train_dataset = CustomSubset(new_data, train_indice)
-val_dataset = CustomSubset(new_data, test_indice)
+# train_set_size = int(len(new_data) * 0.8)
+# valid_set_size = len(new_data) - train_set_size
+# indice = np.arange(len(new_data))
+# np.random.seed(0)
+# np.random.shuffle(indice)
+# train_indice, test_indice = np.array_split(indice, [train_set_size])
+# train_dataset = CustomSubset(new_data, train_indice)
+# val_dataset = CustomSubset(new_data, test_indice)
 
-train_sampler = WeightedRandomSampler(
-    weights=train_dataset.weight, num_samples=len(train_dataset), replacement=True
-)
+# train_sampler = WeightedRandomSampler(
+#     weights=train_dataset.weight, num_samples=len(train_dataset), replacement=True
+# )
 train_loader = DataLoader(
-    dataset=train_dataset,
+    dataset=new_data,
     batch_size=16,
-    sampler=train_sampler,
+    # sampler=train_sampler,
     shuffle=False,
     drop_last=True,
 )
@@ -184,7 +183,7 @@ origin_loader = DataLoader(origin_data, batch_size=16, shuffle=False, drop_last=
 origin_PGA = []
 for sample in tqdm(origin_loader):
     tmp_pga = torch.index_select(
-        sample[3].flatten(), 0, sample[3].flatten().nonzero().flatten()
+        sample["label"].flatten(), 0, sample["label"].flatten().nonzero().flatten()
     ).tolist()
     origin_PGA.extend(tmp_pga)
 origin_PGA_array = np.array(origin_PGA)
@@ -194,7 +193,7 @@ print(f"origin rate:{high_intensity_rate}")
 new_PGA = []
 for sample in tqdm(train_loader):
     tmp_pga = torch.index_select(
-        sample[3].flatten(), 0, sample[3].flatten().nonzero().flatten()
+        sample["label"].flatten(), 0, sample["label"].flatten().nonzero().flatten()
     ).tolist()
     new_PGA.extend(tmp_pga)
 new_PGA_array = np.array(new_PGA)
@@ -213,25 +212,25 @@ print(f"oversampled rate:{oversampled_high_intensity_rate}")
 # magnitude_threshold_high_intensity_rate=np.sum(new_PGA1_array>np.log10(0.25))/len(new_PGA1_array)
 # print(f"magnitude threshold rate:{magnitude_threshold_high_intensity_rate}")
 
-# label = ["2", "3", "4", "5-", "5+", "6-", "6+", "7"]
-# pga_threshold = np.log10(
-#     [0.025, 0.080, 0.250, 0.80, 1.4, 2.5, 4.4, 8.0,10])
-label = ["0", "1", "2", "3", "4", "5-", "5+", "6-", "6+", "7"]
-pgv_threshold = np.log10(
-    [0.00001, 0.002, 0.007, 0.019, 0.057, 0.15, 0.3, 0.5, 0.8, 1.4, 20]
-)
+label = ["2", "3", "4", "5-", "5+", "6-", "6+", "7"]
+pga_threshold = np.log10(
+    [0.025, 0.080, 0.250, 0.80, 1.4, 2.5, 4.4, 8.0,10])
+# label = ["0", "1", "2", "3", "4", "5-", "5+", "6-", "6+", "7"]
+# pgv_threshold = np.log10(
+#     [0.00001, 0.002, 0.007, 0.019, 0.057, 0.15, 0.3, 0.5, 0.8, 1.4, 20]
+# )
 
 fig, ax = plt.subplots(figsize=(7, 7))
-ax.hist(new_PGA, bins=32, edgecolor="k", label="oversampled train data", alpha=0.6)
-ax.hist(origin_PGA, bins=32, edgecolor="k", label="origin train data", alpha=0.6)
+ax.hist(new_PGA, bins=64, edgecolor="k", label="oversampled train data", alpha=0.6)
+ax.hist(origin_PGA, bins=64, edgecolor="k", label="origin train data", alpha=0.6)
 # ax.hist(new_PGA1,bins=32,edgecolor="k",label="mag>=4.5")
-ax.hist(pre1["answer"], bins=28, edgecolor="k", label="2016 data")
-ax.vlines(pgv_threshold[1:-1], 0, 40000, linestyles="dotted", color="k")
-for i in range(len(pgv_threshold) - 1):
-    ax.text((pgv_threshold[i] + pgv_threshold[i + 1]) / 2, 50000, label[i])
+# ax.hist(pre1["answer"], bins=28, edgecolor="k", label="2016 data")
+ax.vlines(pga_threshold[1:-1], 0, 40000, linestyles="dotted", color="k")
+for i in range(len(pga_threshold) - 1):
+    ax.text((pga_threshold[i] + pga_threshold[i + 1]) / 2, 50000, label[i])
 ax.set_ylabel("number of traces")
-ax.set_xlabel("log(PGV (m/s))")
-ax.set_title("TSMIP data PGV distribution")
+ax.set_xlabel("log(PGA (m/s^2))")
+ax.set_title("TSMIP data PGA distribution")
 ax.set_yscale("log")
 fig.legend(loc="upper right")
 
