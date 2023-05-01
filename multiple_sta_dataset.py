@@ -487,9 +487,9 @@ class multiple_station_dataset_outputs(Dataset):
                             .reshape(-1, 1)
                         )
                         single_event_index = np.concatenate([eventid, index], axis=1)
-                    if key == label_keys[0]:
+                    if key == "pga":
                         data[key] += [g_event[key][()]]
-                    if key == label_keys[1]:
+                    if key == "pgv":
                         data[key] += [g_event[key][()]]
                     if key == "p_picks":
                         data[key] += [g_event[key][()]]
@@ -555,6 +555,9 @@ class multiple_station_dataset_outputs(Dataset):
                 np.where(ok_events_index[:, 0] == event)[0]
             ]
             single_event_p_picks = p_picks[np.where(ok_events_index[:, 0] == event)[0]]
+            # if event==24784:
+            #     single_event_index=np.delete(single_event_index, [295,98], 0)
+            #     single_event_p_picks=np.delete(single_event_p_picks, [295,98], 0)
             if weight_label:
                 single_event_label_weight = samples_weight_mean[
                     np.where(ok_events_index[:, 0] == event)[0]
@@ -589,7 +592,6 @@ class multiple_station_dataset_outputs(Dataset):
                 if weight_label:
                     Weight.append(np.mean(single_event_label_weight))
 
-        # specific_index=Events_index[400]
         self.data_path = data_path
         self.mode = mode
         self.event_metadata = event_metadata
@@ -602,6 +604,8 @@ class multiple_station_dataset_outputs(Dataset):
         self.data_length_sec = data_length_sec
         self.metadata = metadata
         self.events_index = Events_index
+        self.ok_events_index=ok_events_index
+        self.p_picks=p_picks
         self.max_station_num = max_station_num
         self.label_target = label_target
         self.mask_waveform_sec = mask_waveform_sec
@@ -614,12 +618,17 @@ class multiple_station_dataset_outputs(Dataset):
         specific_index = self.events_index[index]
         with h5py.File(self.data_path, "r") as f:
             # for index in specific_index: #event loop
-            specific_waveforms = {"acc": [], "vel": [], "dis": []}
+            specific_waveforms = {}
+            for key in self.input_type:
+                specific_waveforms[key] = []
+            labels = {}
+            labels_time = {}
+            for key in self.label_keys:
+                labels[key] = []
+                labels_time[f"{key}_time"] = []
+            seen_P_picks = []
             stations_location = []
             label_targets_location = []
-            labels = {"pga": [], "pgv": []}
-            seen_P_picks = []
-            labels_time = {"pga_time": [], "pgv_time": []}
             P_picks = []
             for eventID in specific_index[0]:  # trace waveform
                 for key in self.input_type:
@@ -708,44 +717,24 @@ class multiple_station_dataset_outputs(Dataset):
             Stations_location = np.array(stations_location)
             label_targets_location = np.array(label_targets_location)
             P_picks = np.array(P_picks)
-            labels_time[f"{self.label_keys[0]}_time"] = np.array(
-                labels_time[f"{self.label_keys[0]}_time"]
-            )
-            labels_time[f"{self.label_keys[0]}_time"] = np.array(
-                labels_time[f"{self.label_keys[1]}_time"]
-            )
+            for label_key in self.label_keys:
+                labels[f"{label_key}"] = np.array(labels[f"{label_key}"])
+                labels_time[f"{label_key}_time"] = np.array(
+                    labels_time[f"{label_key}_time"]
+                )
+
+            outputs = outputs_waveform.copy()
+            outputs.update(labels)
+            outputs["sta"] = Stations_location
+            outputs["target"] = label_targets_location
+
         if self.mode == "train":
-            outputs = {
-                "acc": outputs_waveform["acc"],
-                "vel": outputs_waveform["vel"],
-                "dis": outputs_waveform["dis"],
-                "sta": Stations_location,
-                "target": label_targets_location,
-                f"{self.label_keys[0]}": np.array(labels[f"{self.label_keys[0]}"]),
-                f"{self.label_keys[1]}": np.array(labels[f"{self.label_keys[1]}"]),
-            }
             return outputs
-        else:
+        if self.mode == "test":
             P_picks = np.array(P_picks)
-            labels_time = np.array(labels_time)
-            outputs = {
-                "acc": outputs_waveform["acc"],
-                "vel": outputs_waveform["vel"],
-                "dis": outputs_waveform["dis"],
-                "sta": Stations_location,
-                "target": label_targets_location,
-                f"{self.label_keys[0]}": np.array(labels[f"{self.label_keys[0]}"]),
-                f"{self.label_keys[1]}": np.array(labels[f"{self.label_keys[1]}"]),
-                "EQ_ID": specific_index[0],
-                "p_picks": P_picks,
-                f"{self.label_keys[0]}_time": labels_time[f"{self.label_keys[0]}_time"],
-                f"{self.label_keys[1]}_time": labels_time[f"{self.label_keys[1]}_time"],
-            }
-            # others_info = {
-            #     "EQ_ID": specific_index[0],
-            #     "p_picks": P_picks,
-            #     "pga_time": labels_time,
-            # }
+            outputs.update(labels_time)
+            outputs["EQ_ID"] = specific_index[0]
+            outputs["p_picks"] = P_picks
             return outputs
 
 
@@ -802,7 +791,7 @@ class CustomSubset(Subset):
 #     if a>150:
 #         break
 
-# full_data = multiple_station_dataset_new(
+# full_data = multiple_station_dataset_outputs(
 #     "D:/TEAM_TSMIP/data/TSMIP_filtered.hdf5",
 #     mode="train",
 #     mask_waveform_sec=3,
@@ -810,15 +799,14 @@ class CustomSubset(Subset):
 #     oversample=1,
 #     test_year=2016,
 #     mask_waveform_random=True,
-#     label_key="pga",
-#     input_type="acc",
+#     label_keys=["pga"],
+#     input_type=["acc","vel"],
 #     data_length_sec=10
 # )
 
-# train_loader=DataLoader(dataset=full_data,batch_size=16,drop_last=True)
+# train_loader=DataLoader(dataset=full_data,batch_size=6,drop_last=True)
 
 # from tqdm import tqdm
 # for sample in tqdm(train_loader):
-#     if sample["waveform"].shape[2]!=2000:
-#         print(sample["waveform"].shape)
-#         break
+#     print(sample["acc"].shape)
+#     print(sample["vel"].shape)

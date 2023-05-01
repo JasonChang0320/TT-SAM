@@ -15,17 +15,15 @@ from CNN_Transformer_Mixtureoutput_TEAM import (
     MLP,
     PositionEmbedding,
     TransformerEncoder,
-    full_model
+    full_model,
 )
-from multiple_sta_dataset import CustomSubset, multiple_station_dataset
+from multiple_sta_dataset import multiple_station_dataset_outputs
 
 
 def train_process(
     full_Model, optimizer, hyper_param, num_of_gaussian=5, train_data_size=0.8
 ):
-    experiment = mlflow.get_experiment_by_name(
-        "ensemble model acc predict PGA, test 2016"
-    )
+    experiment = mlflow.get_experiment_by_name("acc & vel predict PGA, test 2016")
     with mlflow.start_run(
         run_name="TSMIP_EEW_random_sec_dis", experiment_id=experiment.experiment_id
     ) as run:
@@ -41,7 +39,7 @@ def train_process(
         cudnn.benchmark = True
         # full_data=multiple_station_dataset("D:/TEAM_TSMIP/data/TSMIP_new.hdf5",train_mode=True,oversample=1.5,
         #                                         mask_waveform_sec=3,test_year=2018)
-        full_data = multiple_station_dataset(
+        full_data = multiple_station_dataset_outputs(
             "D:/TEAM_TSMIP/data/TSMIP_filtered.hdf5",
             mode="train",
             mask_waveform_sec=3,
@@ -49,8 +47,8 @@ def train_process(
             oversample=1.5,
             test_year=2016,
             mask_waveform_random=True,
-            label_key="pga",
-            input_type="acc",
+            label_keys=["pga"],
+            input_type=["acc", "vel"],
             data_length_sec=10,
         )
 
@@ -122,7 +120,7 @@ def train_process(
                 optimizer.zero_grad()
                 weight, sigma, mu = full_Model(sample)
                 pga_label = (
-                    sample["label"]
+                    sample["pga"]
                     .reshape(hyper_param["batch_size"], full_data.label_target, 1)
                     .cuda()
                 )
@@ -154,7 +152,7 @@ def train_process(
                 weight, sigma, mu = full_Model(sample)
 
                 pga_label = (
-                    sample["label"]
+                    sample["pga"]
                     .reshape(hyper_param["batch_size"], full_data.label_target, 1)
                     .cuda()
                 )
@@ -228,9 +226,9 @@ if __name__ == "__main__":
     model_index = 0
     num_epochs = 100
     # batch_size=16
-    for batch_size in [16]:
-        for LR in [5e-5]:
-            for i in range(3):
+    for batch_size in [16, 32]:
+        for LR in [5e-5, 1e-5]:
+            for i in range(10):
                 model_index += 1
                 hyper_param = {
                     "model_index": model_index,

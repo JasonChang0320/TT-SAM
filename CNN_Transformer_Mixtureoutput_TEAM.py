@@ -98,8 +98,12 @@ class CNN(nn.Module):
             / 100
         )
         self.unsqueeze_layer2 = LambdaLayer(lambda t: torch.unsqueeze(t, dim=1))
+        # self.conv2d1 = nn.Sequential(
+        #     nn.Conv2d(1, 8, kernel_size=(1, downsample), stride=(1, downsample)),
+        #     nn.ReLU(),  # 用self.activation會有兩個ReLU
+        # )
         self.conv2d1 = nn.Sequential(
-            nn.Conv2d(1, 8, kernel_size=(1, downsample), stride=(1, downsample)),
+            nn.Conv2d(1, 8, kernel_size=(1, 4), stride=(1, 2), padding=(0, 1)),
             nn.ReLU(),  # 用self.activation會有兩個ReLU
         )
         self.conv2d2 = nn.Sequential(
@@ -127,7 +131,6 @@ class CNN(nn.Module):
 
         output = self.conv2d1(output)
         output = self.conv2d2(output)
-        # print(output.shape)
         output = torch.squeeze(output, dim=-1)
         output = self.conv1d1(output)
         output = self.maxpooling(output)
@@ -147,9 +150,29 @@ class CNN(nn.Module):
         return output
 
 
+# from multiple_sta_dataset import multiple_station_dataset_outputs
+# full_data = multiple_station_dataset_outputs(
+#     "D:/TEAM_TSMIP/data/TSMIP_filtered.hdf5",
+#     mode="train",
+#     mask_waveform_sec=3,
+#     weight_label=False,
+#     oversample=1,
+#     test_year=2016,
+#     mask_waveform_random=True,
+#     label_keys=["pga"],
+#     input_type=["acc","vel"],
+#     data_length_sec=10
+# )
 # model = CNN(mlp_input=3665).cuda()
-# CNN_input = torch.Tensor(np.random.rand(18000)*100).reshape(-1, 2000, 3).cuda()
-# model(CNN_input)
+# # CNN_input = torch.Tensor(np.random.rand(18000)*100).reshape(-1, 2000, 3).cuda()
+# input=np.concatenate([full_data[0]["acc"],full_data[0]["vel"]],axis=2)
+
+# # model(torch.DoubleTensor(full_data[0]["acc"].reshape(-1, 2000, 3))
+# # .float()
+# # .cuda())
+# model(torch.DoubleTensor(input)
+# .float()
+# .cuda())
 # summary(model, (3000, 3))
 
 
@@ -373,8 +396,9 @@ class full_model(nn.Module):
         self.emb_dim = emb_dim
 
     def forward(self, data):
+        data["waveform"] = np.concatenate([data["acc"], data["vel"]], axis=2)
         CNN_output = self.model_CNN(
-            torch.DoubleTensor(data["waveform"].reshape(-1, self.data_length, 3))
+            torch.DoubleTensor(data["waveform"].reshape(-1, self.data_length, 6))
             .float()
             .cuda()
         )
