@@ -13,21 +13,21 @@ from plot_predict_map import (
 mask_after_sec = 5
 EQ_ID = 24784
 trigger_station_threshold = 1
-label_type = "pgv"
+label_type = "pga"
 if label_type == "pga":
     label_threshold = np.log10(9.8 * 0.025)
     intensity = "IV"
 if label_type == "pgv":
     label_threshold = np.log10(0.15)
     intensity = "V"
-path = "./predict/dis random sec predict pgv test 2016/ok model prediction"
+path = "./predict"
 Afile_path = "data/Afile"
 
 catalog = pd.read_csv(f"{Afile_path}/final catalog (station exist)_filtered.csv")
 traces_info = pd.read_csv(
     f"{Afile_path}/1991-2020 traces with picking and label_new (sta location exist)_filtered.csv"
 )
-prediction = pd.read_csv(f"{path}/model8 12 {mask_after_sec} sec prediction.csv")
+prediction = pd.read_csv(f"{path}/model 37 {mask_after_sec} sec prediction.csv")
 station_info = pd.read_csv("data/station information/TSMIPstations_new.csv")
 
 data_path = "D:/TEAM_TSMIP/data/TSMIP_filtered.hdf5"
@@ -79,17 +79,19 @@ event_prediction = pd.merge(
     how="left",
     on=["station_name"],
 )
+# event_prediction.to_csv(f"{path}/{mask_after_sec}_sec_meinong_eq_record_prediction.csv",index=False)
 
 event = catalog[catalog["EQ_ID"] == EQ_ID]
 event = event.assign(
     latitude=event["lat"] + event["lat_minute"] / 60,
     longitude=event["lon"] + event["lon_minute"] / 60,
 )
+# event.to_csv(f"{path}/meinong_eq_info.csv",index=False)
 
 fig, ax = plot_intensity_map(
     trace_info=event_prediction,
     eventmeta=event,
-    label_type="pgv",
+    label_type="pga",
     true_label=event_prediction["answer"],
     pred_label=event_prediction["predict"],
     sec=mask_after_sec,
@@ -97,20 +99,20 @@ fig, ax = plot_intensity_map(
     grid_method="linear",
     pad=100,
 )
-# fig.savefig(f"{path}/precision and warning time map/EQID_{EQ_ID}/{mask_after_sec} sec intensity map.png",
+# fig.savefig(f"{path}/meinong earthquake/{mask_after_sec} sec intensity map.png",
 #             dpi=300)
 
 fig, ax = warning_map(
     trace_info=event_prediction,
     eventmeta=event,
-    label_type="pgv",
+    label_type=label_type,
     intensity=intensity,
     EQ_ID=EQ_ID,
     sec=mask_after_sec,
     label_threshold=label_threshold,
 )
 
-# fig.savefig(f"{path}/precision and warning time map/EQID_{EQ_ID}/{mask_after_sec} sec warning map.png",
+# fig.savefig(f"{path}/meinong earthquake/{mask_after_sec} sec warning map.png",
 #             dpi=300)
 
 fig, ax = correct_warning_with_epidist(
@@ -120,7 +122,7 @@ fig, ax = correct_warning_with_epidist(
     mask_after_sec=mask_after_sec,
 )
 
-# fig.savefig(f"{path}/precision and warning time map/EQID_{EQ_ID}/{mask_after_sec} sec epidist vs time.png",
+# fig.savefig(f"{path}/meinong earthquake/{mask_after_sec} sec epidist vs time.png",
 #             dpi=300)
 
 fig, ax = warning_time_hist(
@@ -130,9 +132,9 @@ fig, ax = warning_time_hist(
     mask_after_sec=mask_after_sec,
     warning_mag_threshold=4,
     label_threshold=label_threshold,
-    label_type="pgv",
+    label_type=label_type,
 )
-# fig.savefig(f"{path}/precision and warning time map/EQID_{EQ_ID}/{mask_after_sec} sec warning stations hist.png",
+# fig.savefig(f"{path}/meinong earthquake/{mask_after_sec} sec warning stations hist.png",
 #             dpi=300)
 
 true_predict_filter = (prediction["predict"] > label_threshold) & (
@@ -146,7 +148,7 @@ fig, ax = true_predicted(
     quantile=False,
     agg="point",
     point_size=70,
-    target="pgv",
+    target=label_type,
 )
 ax.scatter(
     prediction[eq_id_filter & true_predict_filter]["answer"],
@@ -155,5 +157,5 @@ ax.scatter(
     c="red",
     alpha=0.5,
 )
-# fig.savefig(f"{path}/precision and warning time map/EQID_{EQ_ID}/{mask_after_sec} sec true vs predict.png",
+# fig.savefig(f"{path}/meinong earthquake/{mask_after_sec} sec true vs predict.png",
 #             dpi=300)

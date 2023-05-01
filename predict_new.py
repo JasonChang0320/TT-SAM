@@ -15,28 +15,27 @@ from CNN_Transformer_Mixtureoutput_TEAM import (
     TransformerEncoder,
     full_model,
 )
-from multiple_sta_dataset import multiple_station_dataset
+from multiple_sta_dataset import multiple_station_dataset_outputs
 from plot_predict_map import true_predicted
 
-mask_after_sec = 3
-label = "pga"
-data = multiple_station_dataset(
+mask_after_sec = 5
+label = ["pga"]
+data = multiple_station_dataset_outputs(
     "D:/TEAM_TSMIP/data/TSMIP_filtered.hdf5",
     mode="test",
     mask_waveform_sec=mask_after_sec,
     test_year=2016,
-    label_key=label,
-    mag_threshold=0,
-    input_type="acc",
-    data_length_sec=30,
+    label_keys=label,
+    input_type=["acc", "vel"],
+    data_length_sec=10,
 )
 # =========================
 device = torch.device("cuda")
-for num in [26]:  # [4,6,11,13,14,15,19,21,26,28,30]
+for num in [37]:  # [2,11,13,14,15,16,17,19,20,22,24,26,27,29,31,32,33,34,35,36,37]
     path = f"./model/model{num}.pt"
     emb_dim = 150
     mlp_dims = (150, 100, 50, 30, 10)
-    CNN_model = CNN().cuda()
+    CNN_model = CNN(mlp_input=3665).cuda()
     pos_emb_model = PositionEmbedding(emb_dim=emb_dim).cuda()
     transformer_model = TransformerEncoder()
     mlp_model = MLP(input_shape=(emb_dim,), dims=mlp_dims).cuda()
@@ -48,7 +47,7 @@ for num in [26]:  # [4,6,11,13,14,15,19,21,26,28,30]
         mlp_model,
         mdn_model,
         pga_targets=25,
-        data_length=6000,
+        data_length=2000,
     ).to(device)
     full_Model.load_state_dict(torch.load(path))
     loader = DataLoader(dataset=data, batch_size=1)
@@ -64,7 +63,7 @@ for num in [26]:  # [4,6,11,13,14,15,19,21,26,28,30]
     Elev = []
     for j, sample in tqdm(enumerate(loader)):
         picks = sample["p_picks"].flatten().numpy().tolist()
-        label_time = sample[f"{label}_time"].flatten().numpy().tolist()
+        label_time = sample[f"{label[0]}_time"].flatten().numpy().tolist()
         lat = sample["target"][:, :, 0].flatten().tolist()
         lon = sample["target"][:, :, 1].flatten().tolist()
         elev = sample["target"][:, :, 2].flatten().tolist()
@@ -98,14 +97,14 @@ for num in [26]:  # [4,6,11,13,14,15,19,21,26,28,30]
         mu = mu.cpu()
         if j == 0:
             Mixture_mu = torch.sum(weight * mu, dim=2).cpu().detach().numpy()
-            Label = sample["label"].cpu().detach().numpy()
+            Label = sample[f"{label[0]}"].cpu().detach().numpy()
         else:
             Mixture_mu = np.concatenate(
                 [Mixture_mu, torch.sum(weight * mu, dim=2).cpu().detach().numpy()],
                 axis=1,
             )
             Label = np.concatenate(
-                [Label, sample["label"].cpu().detach().numpy()], axis=1
+                [Label, sample[f"{label[0]}"].cpu().detach().numpy()], axis=1
             )
     Label = Label.flatten()
     Mixture_mu = Mixture_mu.flatten()
@@ -113,7 +112,7 @@ for num in [26]:  # [4,6,11,13,14,15,19,21,26,28,30]
     output = {
         "EQ_ID": EQ_ID,
         "p_picks": P_picks,
-        f"{label}_time": Label_time,
+        f"{label[0]}_time": Label_time,
         "predict": Mixture_mu,
         "answer": Label,
         "latitude": Lat,
@@ -122,9 +121,9 @@ for num in [26]:  # [4,6,11,13,14,15,19,21,26,28,30]
     }
     output_df = pd.DataFrame(output)
     output_df = output_df[output_df["answer"] != 0]
-    # output_df.to_csv(
-    #     f"./predict/model {num} {mask_after_sec} sec prediction.csv", index=False
-    # )
+    output_df.to_csv(
+        f"./predict/model {num} {mask_after_sec} sec prediction.csv", index=False
+    )
     fig, ax = true_predicted(
         y_true=output_df["answer"],
         y_pred=output_df["predict"],
@@ -132,7 +131,7 @@ for num in [26]:  # [4,6,11,13,14,15,19,21,26,28,30]
         quantile=False,
         agg="point",
         point_size=12,
-        target=label,
+        target=label[0],
     )
     eq_id=24784
     ax.scatter(output_df["answer"][output_df["EQ_ID"] == eq_id],
@@ -146,7 +145,7 @@ for num in [26]:  # [4,6,11,13,14,15,19,21,26,28,30]
         fontsize=20,
     )
 
-    # fig.savefig(f"./predict/model{num} {mask_after_sec} sec.png")
+    fig.savefig(f"./predict/model{num} {mask_after_sec} sec.png")
     
 # input_waveform_picks=np.array(data[31][4])[np.array(data[31][4])<np.array(data[31][4])[0]+mask_after_sec*200]
 # wav_fig,ax=plt.subplots(len(input_waveform_picks),1,figsize=(14,7))
@@ -231,3 +230,14 @@ for eq_id in data.event_metadata["EQ_ID"]:
         fig.savefig(
             f"./predict/eq_id_{eq_id}_predict/model4 26_{mask_after_sec}_EQID_{eq_id} magnitude_{magnitude}.png"
         )
+
+
+# ok_events_index=data.ok_events_index
+# p_picks=data.p_picks
+# single_event_index = ok_events_index[
+#     np.where(ok_events_index[:, 0] == 24784)[0]
+# ]
+# single_event_p_picks = p_picks[np.where(ok_events_index[:, 0] == 24784)[0]]
+# sort = single_event_p_picks.argsort()
+# single_event_p_picks = single_event_p_picks[sort]
+# single_event_index = single_event_index[sort]
