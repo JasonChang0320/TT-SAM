@@ -712,6 +712,8 @@ class multiple_station_dataset_outputs(Dataset):
                             self.mask_waveform_sec * self.sampling_rate
                         ):
                             Specific_waveforms[i, :, :] = 0
+                            #還沒收到waveform的測站不能先被看到 !
+                            stations_location[i]=np.zeros_like(station_location)
                 outputs_waveform[key] = Specific_waveforms
 
             Stations_location = np.array(stations_location)
