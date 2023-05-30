@@ -1,0 +1,72 @@
+---------------------------------------------------------------------------
+This is a script to calculate the P- and S-wave travel time between any two 
+points in a 3D velocity model.
+
+References please cite the papers below:
+1) For ray-tracing method:
+   Koketsu and Sekine (1998), Pseudo-bending method for three-dimensional 
+       seismic ray tracing in a spherical earth with discontinuities, Geophys. 
+       J. Int., 132, 339-346. 
+   Huang et al. (2013), First Local Seismic Tomography for Red River Shear 
+       Zone, northern Vietnam: Stepwise inversion employing crustal P and Pn
+       waves, Tectonophysics, 584, 230-239.
+
+2) For velocity model of Taiwan region:
+   Huang et al. (2014), Joint Vp and Vs tomography of Taiwan: Implications
+       for subduction-collision orogeny, Earth. Planet. Sci. Lett., 392, 
+       177-191. 
+
+---------------------------------------------------------------------------
+Last update: JUL 7, 2014  by Hsin-Hua Huang
+
+SUBDIRECTORIES:
+    1) src - source codes
+    2) mod - place to put collected velocity models
+
+
+
+RUNNING THE SCRIPT, SIMPLY TYPE './tracer'!
+    To do it correctly, you need a velocity model named 'vel3d.mod' under main 
+    directory for script to read. Detailed format please refer to the content 
+    of the files.
+
+
+
+RAY PATH OUTPUT:
+    If select 1 for ray path output, two files named P_path.txt and S_path.txt 
+    will be generated. Each ray paths in the files are separated by "X".
+
+
+
+INPUT DATA FORMAT: 
+    You will see the instruction after typing './tracer':
+    1) Two-point mode - All you need is simply to input coordinates of any
+                        two points. Then it will give you P- and S-wave 
+                        calculated travel times on screen. This mode provide
+                        a option to output the traced ray paths for P- and
+                        S-wave in the file "P_path.txt" and "S_path.txt",
+                        repectively.
+
+    2) Two-file mode  - In this mode you need to input two file names for 
+                        sources (usually earthquakes) and receivers (usually
+                        stations), respectively. Both of them require the
+                        source and receiver coordinates in three columns
+                        (lon, lat, dep), and can be plural. See chichi.evt 
+                        and chichi.sta for examples. An easier way is to 
+                        modify the input file and type './tracer < input'
+                        to run.
+
+                        OUTPUT FORMAT:
+                        In two-file mode, you can further choose the format 
+                        of output file.
+                        1) ascii 
+                        It will output an ascii file 'tt.table', containning
+                        eight-column. The column 1,2,3 and column 4,5,6 are 
+                        the source and receiver coordinates, and the last two 
+                        columns are the calculated P- and S-wave travel times
+                        , respecitvely.
+
+                        2) binary
+                        It will output a binary file 'tt.bin', which follows 
+                        the ascii format to store.
+
