@@ -1,5 +1,6 @@
 
 /__pycache__
+.vscode
 
 #waveform and catalog
 /data
@@ -16,3 +17,11 @@
 /multi_input_predict_pga_and_pgv/__pycache__
 /multi_input_predict_pga_and_pgv/mlruns
 /multi_input_predict_pga_and_pgv/model
+
+#document
+112CWB_EEW_mid_report.docx
+
+#data preprocess
+/data preprocess/events_traces_catalog
+/data preprocess/._tracer_demo
+/data preprocess/tracer_demo.tar

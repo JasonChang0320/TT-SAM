@@ -12,7 +12,7 @@ from tqdm import tqdm
 
 from multiple_sta_dataset import (
     CustomSubset,
-    multiple_station_dataset_new,
+    multiple_station_dataset,
 )
 
 # from wordcloud import WordCloud
@@ -129,7 +129,7 @@ ax.legend(loc="center right")
 # training data (add oversampling)
 # new_data=multiple_station_dataset_new("D:/TEAM_TSMIP/data/TSMIP_new.hdf5",mode="train",mask_waveform_sec=3,
 #                                                 oversample_by_labels=True,dowmsampling=True,oversample=1,label_key="pgv",test_year=2016)
-origin_data = multiple_station_dataset_new(
+origin_data = multiple_station_dataset(
     "D:/TEAM_TSMIP/data/TSMIP_filtered.hdf5",
     mode="train",
     mask_waveform_sec=3,
@@ -137,8 +137,9 @@ origin_data = multiple_station_dataset_new(
     oversample_mag=4,
     input_type="acc",
     label_key="pga",
+    weight_label=False
 )
-new_data = multiple_station_dataset_new(
+new_data = multiple_station_dataset(
     "D:/TEAM_TSMIP/data/TSMIP_filtered.hdf5",
     mode="train",
     mask_waveform_sec=3,
@@ -146,11 +147,11 @@ new_data = multiple_station_dataset_new(
     oversample_mag=4,
     input_type="acc",
     label_key="pga",
-    weight_label=False,
+    weight_label=False
 )
 # oversample_data=multiple_station_dataset_new("D:/TEAM_TSMIP/data/TSMIP.hdf5",train_mode=True,mask_waveform_sec=5,oversample=1.5,oversample_mag=5)
 pre1 = pd.read_csv(
-    f"./predict/2016 data model3 3 sec 1 triggered station prediction.csv"
+    f"./predict/model 37 3 sec prediction.csv"
 )
 
 # train_set_size = int(len(new_data) * 0.8)
@@ -165,18 +166,18 @@ pre1 = pd.read_csv(
 # train_sampler = WeightedRandomSampler(
 #     weights=train_dataset.weight, num_samples=len(train_dataset), replacement=True
 # )
-train_loader = DataLoader(
-    dataset=new_data,
-    batch_size=16,
-    # sampler=train_sampler,
-    shuffle=False,
-    drop_last=True,
-)
+# train_loader = DataLoader(
+#     dataset=train_dataset,
+#     batch_size=16,
+#     sampler=train_sampler,
+#     shuffle=False,
+#     drop_last=True,
+# )
 # val_loader=DataLoader(dataset=val_dataset,batch_size=16,
 #                                 shuffle=False,drop_last=True)
 
 origin_loader = DataLoader(origin_data, batch_size=16, shuffle=False, drop_last=True)
-# new_loader=DataLoader(dataset=new_data,batch_size=16)
+new_loader=DataLoader(dataset=new_data,batch_size=16, shuffle=False, drop_last=True)
 # new_loader1=DataLoader(dataset=new_data1,batch_size=16)
 
 
@@ -191,7 +192,7 @@ high_intensity_rate = np.sum(origin_PGA_array > np.log10(0.057)) / len(origin_PG
 print(f"origin rate:{high_intensity_rate}")
 
 new_PGA = []
-for sample in tqdm(train_loader):
+for sample in tqdm(new_loader):
     tmp_pga = torch.index_select(
         sample["label"].flatten(), 0, sample["label"].flatten().nonzero().flatten()
     ).tolist()
@@ -221,18 +222,19 @@ pga_threshold = np.log10(
 # )
 
 fig, ax = plt.subplots(figsize=(7, 7))
-ax.hist(new_PGA, bins=64, edgecolor="k", label="oversampled train data", alpha=0.6)
-ax.hist(origin_PGA, bins=64, edgecolor="k", label="origin train data", alpha=0.6)
+# ax.hist(new_PGA, bins=32, edgecolor="k", label="oversampled train data", alpha=0.6)
+ax.hist(origin_PGA, bins=32, edgecolor="k", label="train data", alpha=0.6)
 # ax.hist(new_PGA1,bins=32,edgecolor="k",label="mag>=4.5")
-# ax.hist(pre1["answer"], bins=28, edgecolor="k", label="2016 data")
+ax.hist(pre1["answer"], bins=28, edgecolor="k", label="2016 data")
 ax.vlines(pga_threshold[1:-1], 0, 40000, linestyles="dotted", color="k")
 for i in range(len(pga_threshold) - 1):
     ax.text((pga_threshold[i] + pga_threshold[i + 1]) / 2, 50000, label[i])
-ax.set_ylabel("number of traces")
-ax.set_xlabel("log(PGA (m/s^2))")
-ax.set_title("TSMIP data PGA distribution")
+ax.set_ylabel("Number of traces",size=14)
+ax.set_xlabel(r"log(PGA (${m/s^2}$))",size=14)
+ax.set_title("TSMIP data PGA distribution",size=16)
 ax.set_yscale("log")
 fig.legend(loc="upper right")
+fig.savefig("PGA distribution.pdf", dpi=300,bbox_inches='tight')
 
 # test label ditribution
 pre1 = pd.read_csv("predict/model1 2 3 sec 1 triggered station prediction.csv")

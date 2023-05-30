@@ -17,7 +17,7 @@ from CNN_Transformer_Mixtureoutput_TEAM import (
 from multiple_sta_dataset import multiple_station_dataset_outputs
 from plot_predict_map import true_predicted
 
-mask_after_sec = 5
+mask_after_sec = 3
 label = ["pga"]
 data = multiple_station_dataset_outputs(
     "D:/TEAM_TSMIP/data/TSMIP_filtered.hdf5",
@@ -120,5 +120,5 @@ for j, sample in tqdm(enumerate(loader)):
                 waveform_ax[0].set_title(f"acc waveform, station: {station_name}, PGA: {answer} gal",size=20)
                 waveform_fig.savefig(f"./predict/meinong earthquake/index{i}_{station_name}_acc_input.png")
         waveforms_ax[0].set_title(f"Meinong earthquake {mask_after_sec} sec acc records, H2 component",size=20)
-        waveforms_fig.savefig(f"./predict/meinong earthquake/{mask_after_sec}_sec_H2_acc.png",bbox_inches='tight')
+        # waveforms_fig.savefig(f"./predict/meinong earthquake/{mask_after_sec}_sec_H2_acc.png",bbox_inches='tight')
         break
