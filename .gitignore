@@ -25,3 +25,7 @@
 /data preprocess/events_traces_catalog
 /data preprocess/._tracer_demo
 /data preprocess/tracer_demo.tar
+
+#3d velocity model input
+/data preprocess/tracer_demo/create_input_file/event_input.evt
+/data preprocess/tracer_demo/create_input_file/station_input.sta
