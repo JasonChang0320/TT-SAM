@@ -29,3 +29,4 @@
 #3d velocity model input
 /data preprocess/tracer_demo/create_input_file/event_input.evt
 /data preprocess/tracer_demo/create_input_file/station_input.sta
+/data preprocess/tracer_demo/create_input_file/2009_2019_input
