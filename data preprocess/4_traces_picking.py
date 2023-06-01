@@ -7,9 +7,9 @@ from read_tsmip import read_tsmip
 from obspy.signal.trigger import ar_pick
 
 waveform_path = "../data/waveform"
-traces=pd.read_csv("./2009_2019_ok_traces.csv")
+traces = pd.read_csv("./2009_2019_ok_traces.csv")
 
-traces['p_pick_sec'] = 0
+traces["p_pick_sec"] = 0
 for i in range(len(traces)):
     print(f"{i}/{len(traces)}")
     EQ_ID = str(traces["EQ_ID"][i])
@@ -20,14 +20,14 @@ for i in range(len(traces)):
     minute = str(traces["minute"][i])
     second = str(traces["second"][i])
     intensity = str(traces["intensity"][i])
-    station_name= traces["station_name"][i]
-    epdis=str(traces["epdis (km)"][i])
+    station_name = traces["station_name"][i]
+    epdis = str(traces["epdis (km)"][i])
     file_name = traces["file_name"][i].strip()
     if len(month) < 2:
         month = "0" + month
     waveform = read_tsmip(f"{waveform_path}/{year}/{month}/{file_name}.txt")
     # picking
-    p_pick,_ = ar_pick(
+    p_pick, _ = ar_pick(
         waveform[0],
         waveform[1],
         waveform[2],
@@ -44,6 +44,40 @@ for i in range(len(traces)):
         l_s=0.2,
         s_pick=False,
     )
-    traces.loc[i,"p_pick_sec"]=p_pick
+    traces.loc[i, "p_pick_sec"] = p_pick
 
-traces.to_csv("2009_2019_ok_picked_traces.csv",index=False)
+# traces.to_csv("events_traces_catalog/2009_2019_ok_picked_traces.csv",index=False)
+
+# ========shift p_picking by velocity model to correct absolute time======
+traces = pd.read_csv("events_traces_catalog/2009_2019_ok_picked_traces.csv")
+
+EQ_ID = os.listdir("./tracer_demo/2009_2019_output")
+
+traces["p_arrival_abs_time"] = pd.to_datetime(
+    traces[["year", "month", "day", "hour", "minute", "second"]]
+)
+
+colnames = [
+    "evt_lon",
+    "evt_lat",
+    "evt_depth",
+    "sta_lon",
+    "sta_lat",
+    "sta_elev",
+    "p_arrival",
+    "s_arrival",
+]
+# eq = 18118
+for eq in EQ_ID:
+    event_file_path = f"./tracer_demo/2009_2019_output/{eq}/output.table"
+    tracer_output = pd.read_csv(
+        event_file_path, sep=r"\s+", names=colnames, header=None
+    )
+    trace_index = traces[traces["EQ_ID"] == int(eq)].index
+    p_arrival = pd.to_timedelta(tracer_output["p_arrival"], unit="s")
+    p_arrival.index = trace_index
+    traces.loc[trace_index, "p_arrival_abs_time"] = (
+        traces.loc[trace_index, "p_arrival_abs_time"] + p_arrival
+    )
+# with open(event_file_path, "r") as file:
+#     print()
