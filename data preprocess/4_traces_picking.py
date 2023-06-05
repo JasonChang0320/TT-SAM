@@ -7,7 +7,7 @@ from read_tsmip import read_tsmip
 from obspy.signal.trigger import ar_pick
 
 waveform_path = "../data/waveform"
-traces = pd.read_csv("./2009_2019_ok_traces.csv")
+traces = pd.read_csv("./events_traces_catalog/2009_2019_ok_traces.csv")
 
 traces["p_pick_sec"] = 0
 for i in range(len(traces)):
@@ -67,7 +67,6 @@ colnames = [
     "p_arrival",
     "s_arrival",
 ]
-# eq = 18118
 for eq in EQ_ID:
     event_file_path = f"./tracer_demo/2009_2019_output/{eq}/output.table"
     tracer_output = pd.read_csv(
@@ -79,5 +78,15 @@ for eq in EQ_ID:
     traces.loc[trace_index, "p_arrival_abs_time"] = (
         traces.loc[trace_index, "p_arrival_abs_time"] + p_arrival
     )
-# with open(event_file_path, "r") as file:
-#     print()
+# traces 和 event 須將 eq_id: 29363 剔除 (velocity model calculate out of range)
+final_traces = traces[traces["EQ_ID"] != 29363]
+
+event = pd.read_csv("./events_traces_catalog/2009_2019_ok_events.csv")
+final_event = event[event["EQ_ID"] != 29363]
+# 存檔
+final_traces.to_csv(
+    "./events_traces_catalog/2009_2019_picked_traces_p_arrival_abstime.csv", index=False
+)
+final_event.to_csv(
+    "./events_traces_catalog/2009_2019_ok_events_p_arrival_abstime.csv", index=False
+)
