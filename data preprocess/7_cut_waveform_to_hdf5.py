@@ -43,7 +43,7 @@ for eq_id in tqdm(catalog["EQ_ID"]):
 
             stream.append(trace)
         fig, ax = plt.subplots()
-        stream.plot(fig=fig)
+        stream.plot(type="section",fig=fig)
 
         magnitude = catalog[catalog["EQ_ID"] == eq_id]["magnitude"].values[0]
 
