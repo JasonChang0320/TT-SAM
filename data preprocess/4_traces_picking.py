@@ -6,8 +6,10 @@ sys.path.append("..")
 from read_tsmip import read_tsmip
 from obspy.signal.trigger import ar_pick
 
+start_year=1999
+end_year=2008
 waveform_path = "../data/waveform"
-traces = pd.read_csv("./events_traces_catalog/2009_2019_ok_traces.csv")
+traces = pd.read_csv(f"./events_traces_catalog/{start_year}_{end_year}_ok_traces.csv")
 
 traces["p_pick_sec"] = 0
 for i in range(len(traces)):
@@ -46,12 +48,12 @@ for i in range(len(traces)):
     )
     traces.loc[i, "p_pick_sec"] = p_pick
 
-# traces.to_csv("events_traces_catalog/2009_2019_ok_picked_traces.csv",index=False)
+traces.to_csv(f"events_traces_catalog/{start_year}_{end_year}_ok_picked_traces.csv",index=False)
 
 # ========shift p_picking by velocity model to correct absolute time======
-traces = pd.read_csv("events_traces_catalog/2009_2019_ok_picked_traces.csv")
+traces = pd.read_csv(f"events_traces_catalog/{start_year}_{end_year}_ok_picked_traces.csv")
 
-EQ_ID = os.listdir("./tracer_demo/2009_2019_output")
+EQ_ID = os.listdir(f"./tracer_demo/{start_year}_{end_year}_output")
 
 traces["p_arrival_abs_time"] = pd.to_datetime(
     traces[["year", "month", "day", "hour", "minute", "second"]]
@@ -68,7 +70,7 @@ colnames = [
     "s_arrival",
 ]
 for eq in EQ_ID:
-    event_file_path = f"./tracer_demo/2009_2019_output/{eq}/output.table"
+    event_file_path = f"./tracer_demo/{start_year}_{end_year}_output/{eq}/output.table"
     tracer_output = pd.read_csv(
         event_file_path, sep=r"\s+", names=colnames, header=None
     )
@@ -81,12 +83,12 @@ for eq in EQ_ID:
 # traces 和 event 須將 eq_id: 29363 剔除 (velocity model calculate out of range)
 final_traces = traces[traces["EQ_ID"] != 29363]
 
-event = pd.read_csv("./events_traces_catalog/2009_2019_ok_events.csv")
+event = pd.read_csv(f"./events_traces_catalog/{start_year}_{end_year}_ok_events.csv")
 final_event = event[event["EQ_ID"] != 29363]
 # 存檔
 final_traces.to_csv(
-    "./events_traces_catalog/2009_2019_picked_traces_p_arrival_abstime.csv", index=False
+    f"./events_traces_catalog/{start_year}_{end_year}_picked_traces_p_arrival_abstime.csv", index=False
 )
 final_event.to_csv(
-    "./events_traces_catalog/2009_2019_ok_events_p_arrival_abstime.csv", index=False
+    f"./events_traces_catalog/{start_year}_{end_year}_ok_events_p_arrival_abstime.csv", index=False
 )

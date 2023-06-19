@@ -1,8 +1,10 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 
-traces=pd.read_csv("2009_2019_target_traces.csv")
-events=pd.read_csv("2009_2019_target_catalog.csv")
+start_year=1999
+end_year=2008
+traces=pd.read_csv(f"events_traces_catalog/{start_year}_{end_year}_target_traces.csv")
+events=pd.read_csv(f"events_traces_catalog/{start_year}_{end_year}_target_catalog.csv")
 
 traces.quality_control.value_counts().plot(kind='pie', autopct='%.1f%%')
 labels = traces.quality_control.unique()
@@ -21,7 +23,7 @@ include_intensity_4=ok_traces[intensity_filter]["EQ_ID"].unique().tolist()
 ok_traces_filter=(ok_traces["EQ_ID"].isin(include_intensity_4))
 ok_traces=ok_traces[ok_traces_filter]
 
-ok_traces.to_csv("2009_2019_ok_traces.csv",index=False)
+ok_traces.to_csv(f"events_traces_catalog/{start_year}_{end_year}_ok_traces.csv",index=False)
 
 
 fig,ax=plt.subplots()
@@ -32,7 +34,7 @@ plt.yscale("log")
 #上述問題在events也替除
 ok_event_filter=(events["EQ_ID"].isin(include_intensity_4))
 ok_events=events[ok_event_filter]
-ok_events.to_csv("2009_2019_ok_events.csv",index=False)
+ok_events.to_csv(f"events_traces_catalog/{start_year}_{end_year}_ok_events.csv",index=False)
 
 fig,ax=plt.subplots()
 ax.hist(events["magnitude"],bins=28,edgecolor="gray")

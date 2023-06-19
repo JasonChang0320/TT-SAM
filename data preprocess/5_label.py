@@ -7,9 +7,11 @@ sys.path.append("..")
 from read_tsmip import read_tsmip, get_peak_value, get_integrated_stream
 
 # read traces catalog
+start_year=1999
+end_year=2008
 waveform_path = "../data/waveform"
 traces = pd.read_csv(
-    "./events_traces_catalog/2009_2019_picked_traces_p_arrival_abstime.csv"
+    f"./events_traces_catalog/{start_year}_{end_year}_picked_traces_p_arrival_abstime.csv"
 )
 
 sampling_rate = 200
@@ -56,6 +58,6 @@ for i in range(len(traces)):
     traces.loc[i, "pgv_time"] = pgv_time
 
 traces.to_csv(
-    "./events_traces_catalog/2009_2019_picked_traces_p_arrival_abstime_labeled.csv",
+    f"./events_traces_catalog/{start_year}_{end_year}_picked_traces_p_arrival_abstime_labeled.csv",
     index=False,
 )

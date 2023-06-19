@@ -9,14 +9,17 @@ import matplotlib.pyplot as plt
 import tkinter as tk
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
-start_index = 34234
+start_year=1999
+end_year=2008
+start_index = 14031
 Afile_path = "../data/Afile"
 sta_path = "../data/station information"
 waveform_path = "../data/waveform"
-traces_file_name="2009_2019_target_traces.csv"
-error_file_name="error_traces_file.csv"
-traces = pd.read_csv(f"{traces_file_name}")
-catalog = pd.read_csv("2009_2019_target_catalog.csv")
+output_path="events_traces_catalog"
+traces_file_name=f"{start_year}_{end_year}_target_traces.csv"
+error_file_name=f"{start_year}_{end_year}_error_traces_file.csv"
+traces = pd.read_csv(f"{output_path}/{traces_file_name}")
+catalog = pd.read_csv(f"{output_path}/{start_year}_{end_year}_target_catalog.csv")
 
 
 def ok_traces(traces=None, index=None):
@@ -37,7 +40,8 @@ if "quality_control" not in traces.columns:
 if os.path.isfile(f"{error_file_name}"):
   error_file=pd.read_csv(f"{error_file_name}")
 else: 
-  error_file = {"year": [], "month": [], "file": [], "reason": []}
+  error_file = pd.DataFrame({'index':[]})
+  error_file.to_csv(f"{error_file_name}", index=False)
 for i in range(start_index,len(traces)):
     print(f"{i}/{len(traces)}")
     try:
@@ -57,6 +61,8 @@ for i in range(start_index,len(traces)):
             month = "0" + month
         waveform = read_tsmip(f"{waveform_path}/{year}/{month}/{file_name}.txt")
         # picking
+        if i==8319: #1999~2008 index 8319 can't pick, kernel crushed
+            continue
         p_pick,_ = ar_pick(
             waveform[0],
             waveform[1],
@@ -123,14 +129,12 @@ for i in range(start_index,len(traces)):
             break
     except Exception as reason:
         print(file_name, f"year:{year},month:{month}, {reason}")
-
-        error_file["year"].append(int(year))
-        error_file["month"].append(month)
-        error_file["file"].append(file_name)
-        error_file["reason"].append(reason)
+        row={"index":i,"year":int(year), "month":month, "file":file_name,"reason":reason}
+        if i not in error_file["index"].values:
+            error_file= pd.concat([error_file,pd.DataFrame(row, index=[0])],ignore_index=True)
+        traces.loc[i, "quality_control"] = "n"
         continue
 
-traces.to_csv(f"{traces_file_name}", index=False)
-error_file_df = pd.DataFrame(error_file)
-error_file_df.to_csv(f"{error_file_name}", index=False)
+traces.to_csv(f"{output_path}/{traces_file_name}", index=False)
+error_file.to_csv(f"{output_path}/{error_file_name}", index=False)
 print("data saved")

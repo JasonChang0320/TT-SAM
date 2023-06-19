@@ -5,13 +5,18 @@ sys.path.append("..")
 from read_tsmip import read_tsmip
 import matplotlib.pyplot as plt
 
+start_year=1999
+end_year=2008
 traces = pd.read_csv(
-    "./events_traces_catalog/2009_2019_picked_traces_p_arrival_abstime_labeled.csv"
+    f"./events_traces_catalog/{start_year}_{end_year}_picked_traces_p_arrival_abstime_labeled.csv"
 )
 catalog = pd.read_csv(
-    "./events_traces_catalog/2009_2019_ok_events_p_arrival_abstime.csv"
+    f"./events_traces_catalog/{start_year}_{end_year}_ok_events_p_arrival_abstime.csv"
 )
 
+traces["instrument_priority"] = traces["instrument_code"].map(
+    {" SMTA": 1, " CVA ": 2, " NANO": 3, " A900": 4, " ETNA": 5, " K2  ": 6, " REFT": 7}
+)
 # 抓出eq_id & station_name 相同的 trace
 overlap_trace = pd.DataFrame()
 for eq_id in catalog["EQ_ID"]:
@@ -33,10 +38,6 @@ insrument_priority = traces["instrument_code"].value_counts().index.tolist()
 # ax.set_title("instrument code")
 # ax=overlap_trace["station_name"].value_counts().plot.bar()
 # ax.set_title("overlap stations")
-overlap_trace["instrument_priority"] = overlap_trace["instrument_code"].map(
-    {" SMTA": 1, " CVA ": 2, " NANO": 3, " A900": 4, " ETNA": 5, " K2  ": 6, " REFT": 7}
-)
-overlap_trace_with_priority = overlap_trace.copy()
 overlap_trace_sorted = overlap_trace.sort_values("instrument_priority")
 chosen_trace = overlap_trace_sorted.drop_duplicates(
     ["station_name", "EQ_ID"], keep="first"
@@ -51,7 +52,7 @@ final_trace = pd.concat([differ_set, chosen_trace]).sort_index()
 
 
 final_trace.to_csv(
-    "./events_traces_catalog/2009_2019_picked_traces_p_arrival_abstime_labeled_nostaoverlap.csv",
+    f"./events_traces_catalog/{start_year}_{end_year}_picked_traces_p_arrival_abstime_labeled_nostaoverlap.csv",
     index=False,
 )
 

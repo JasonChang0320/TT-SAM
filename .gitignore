@@ -30,5 +30,7 @@
 /data preprocess/tracer_demo/create_input_file/event_input.evt
 /data preprocess/tracer_demo/create_input_file/station_input.sta
 /data preprocess/tracer_demo/create_input_file/2009_2019_input
+/data preprocess/tracer_demo/create_input_file/1999_2008_input
 /data preprocess/tracer_demo/2009_2019_output
+/data preprocess/tracer_demo/1999_2008_output
 /data preprocess/cut event figure
