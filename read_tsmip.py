@@ -217,13 +217,15 @@ def trace_pick_plot(
     return p_pick, s_pick, fig
 
 
-def get_peak_value(stream, thresholds=None):
+def get_peak_value(stream, pick_point=0,thresholds=None):
     data = [tr.data for tr in stream]
     data = np.array(data)
+    data=data[:,pick_point:]
     vector = np.linalg.norm(data, axis=0)
 
     peak = max(vector)
     peak_time = np.argmax(vector, axis=0)
+    peak_time+=pick_point
     peak = np.log10(peak / 100)
 
     exceed_times = np.zeros(5)
@@ -239,13 +241,13 @@ def get_peak_value(stream, thresholds=None):
     return peak, peak_time
 
 
-def get_integrated_stream(stream, baseline_correction=None, filter=None):
+def get_integrated_stream(stream):
     stream_intergrated = stream.copy()
+    stream_intergrated.detrend(type="demean")
+    stream_intergrated.filter("lowpass", freq=10)
+    stream_intergrated.taper(max_percentage=0.05, type="cosine")
     stream_intergrated.integrate()
-    if baseline_correction:
-        stream_intergrated.detrend(type="linear")
-    if filter:
-        stream_intergrated.filter("bandpass", freqmin=0.075, freqmax=10)
+    stream_intergrated.filter("bandpass", freqmin=0.075, freqmax=10)
     return stream_intergrated
 
 
@@ -270,7 +272,7 @@ def cut_traces(
     traces_filter = traces["EQ_ID"] == eq_id
     tmp_traces = traces[traces_filter]
 
-    sorted_indices = tmp_traces["epdis (km)"].sort_values().index
+    sorted_indices = tmp_traces["p_arrival_abs_time"].sort_values().index
     tmp_traces = tmp_traces.loc[sorted_indices, :].reset_index(drop=True)
 
     year = tmp_traces["year"][0]
@@ -283,29 +285,39 @@ def cut_traces(
     file_name = file_name.strip()
     stream = read_tsmip(f"{path}/{file_name}.txt")
     sampling_rate = stream[0].stats["sampling_rate"]
-    stream.detrend(type="linear")  # baseline correction
+    stream.detrend(type="demean")  # baseline correction
     stream.filter("lowpass", freq=10)  # filter
-
+    if sampling_rate != target_sampling_rate:
+        stream.resample(target_sampling_rate, window="hann")
     if waveform_type == "acc":
         pass
     elif waveform_type == "vel":
-        stream = get_integrated_stream(stream, filter=True)
+        stream = get_integrated_stream(stream)
     elif waveform_type == "dis":
-        stream = get_integrated_stream(stream, filter=True)
-        stream = get_integrated_stream(stream, filter=True)
-
-    if sampling_rate != target_sampling_rate:
-        stream.resample(target_sampling_rate, window="hann")
+        stream = get_integrated_stream(stream)
+        stream = get_integrated_stream(stream)
 
     trace = np.transpose(np.array(stream)) / 100  # cm/s^2 to m/s^2
 
     trace_length_point = int(trace_length_sec * target_sampling_rate)
     first_start_cut_point = int(
-        (np.round(tmp_traces["p_picks (sec)"][0].total_seconds(), 2) - before_p_sec)
-        * target_sampling_rate
+    np.round(
+        (
+            tmp_traces["p_pick_sec"][0] - pd.Timedelta(seconds=before_p_sec)
+        ).total_seconds(),
+        2,
+    )
+    * target_sampling_rate
+    )
+    abs_cut_starttime = tmp_traces["p_arrival_abs_time"][0] - pd.Timedelta(
+    seconds=before_p_sec
     )
     if first_start_cut_point < 0:
         first_start_cut_point = 0
+        abs_cut_starttime = (
+            tmp_traces["p_arrival_abs_time"][0] - tmp_traces["p_pick_sec"][0]
+        )
+
     if first_start_cut_point + trace_length_point > len(trace):  # zero padding
         init_trace = trace[first_start_cut_point:, :]
         init_trace = np.pad(
@@ -315,24 +327,15 @@ def cut_traces(
         init_trace = trace[
             first_start_cut_point : first_start_cut_point + trace_length_point, :
         ]
-        if len(init_trace) < trace_length_point:
-            init_trace = np.pad(
-                init_trace,
-                ((0, trace_length_point - len(init_trace)), (0, 0)),
-                "constant",
-            )
 
     p_picks_point = int(
         np.round(
-            tmp_traces["p_picks (sec)"][0].total_seconds() * target_sampling_rate, 0
+            tmp_traces["p_pick_sec"][0].total_seconds() * target_sampling_rate, 0
         )
         - first_start_cut_point
     )
     pga_time = int(tmp_traces["pga_time"][0] - first_start_cut_point)
     pgv_time = int(tmp_traces["pgv_time"][0] - first_start_cut_point)
-    start_cutting_time = tmp_traces["start_time"][0] + pd.to_timedelta(
-        first_start_cut_point / target_sampling_rate, unit="sec"
-    )
 
     traces_info["traces"].append(init_trace)
     traces_info["p_picks"].append(p_picks_point)
@@ -340,40 +343,39 @@ def cut_traces(
     traces_info["pgv"].append(tmp_traces["pgv"][0])
     traces_info["pga_time"].append(pga_time)
     traces_info["pgv_time"].append(pgv_time)
-    traces_info["start_time"].append(str(start_cutting_time))
+    traces_info["start_time"].append(str(abs_cut_starttime))
 
     if len(tmp_traces) > 1:
         # print("more than  1 traces")
         for i in range(1, len(tmp_traces)):
             year = tmp_traces["year"][i]
             month = tmp_traces["month"][i]
-            path = f"data/waveform/{year}/{month}"
             file_name = tmp_traces["file_name"][i]
 
             if len(str(month)) < 2:
                 month = "0" + str(month)
-            path = f"data/waveform/{year}/{month}"
+            path = f"{waveform_path}/{year}/{month}"
             file_name = file_name.strip()
             stream = read_tsmip(f"{path}/{file_name}.txt")
             sampling_rate = stream[0].stats["sampling_rate"]
-            stream.detrend(type="linear")  # baseline correction
+            if sampling_rate != target_sampling_rate:
+                stream.resample(target_sampling_rate, window="hann")
+            stream.detrend(type="demean")  # baseline correction
             stream.filter("lowpass", freq=10)  # filter
 
             if waveform_type == "acc":
                 pass
             elif waveform_type == "vel":
-                stream = get_integrated_stream(stream, filter=True)
+                stream = get_integrated_stream(stream)
             elif waveform_type == "dis":
-                stream = get_integrated_stream(stream, filter=True)
-                stream = get_integrated_stream(stream, filter=True)
-
-            if sampling_rate != target_sampling_rate:
-                stream.resample(target_sampling_rate, window="hann")
+                stream = get_integrated_stream(stream)
+                stream = get_integrated_stream(stream)
 
             trace = np.transpose(np.array(stream)) / 100  # cm/s^2 to m/s^2
             window_cut_time = (
-                tmp_traces["start_time"][0] - tmp_traces["start_time"][i]
-            ).total_seconds() + (first_start_cut_point / target_sampling_rate)
+                        tmp_traces["p_pick_sec"][i] 
+                        - (tmp_traces["p_arrival_abs_time"][i] - abs_cut_starttime)
+                    ).total_seconds()
             start_cut_point = int(window_cut_time * target_sampling_rate)
             if window_cut_time < 0:
                 # print("pad at the beginning")
@@ -398,7 +400,7 @@ def cut_traces(
                 )
             p_picks_point = int(
                 np.round(
-                    tmp_traces["p_picks (sec)"][i].total_seconds()
+                    tmp_traces["p_pick_sec"][i].total_seconds()
                     * target_sampling_rate,
                     0,
                 )
@@ -413,7 +415,7 @@ def cut_traces(
             traces_info["pgv"].append(tmp_traces["pgv"][i])
             traces_info["pga_time"].append(pga_time)
             traces_info["pgv_time"].append(pgv_time)
-            traces_info["start_time"].append(str(start_cutting_time))
+            traces_info["start_time"].append(str(abs_cut_starttime))
     return tmp_traces, traces_info
 
 
