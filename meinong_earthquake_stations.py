@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 # plot input station map
 mask_after_sec = 5
 
-record_prediction = pd.read_csv(f"./predict/{mask_after_sec}_sec_meinong_eq_record_prediction.csv")
+record_prediction = pd.read_csv(f"./predict/acc predict pga 1999_2019/model 2 meinong intensity map/{mask_after_sec}_sec_meinong_eq_record_prediction.csv")
 event = pd.read_csv("./predict/meinong_eq_info.csv")
 first_trigger_time = min(record_prediction["p_picks"])
 input_station = record_prediction[
@@ -152,40 +152,40 @@ fig, ax = plot_station_map(
     pad=100,
 )
 
-if len(input_station) >= 25:
-    input_station = input_station[:25]
-# 標示測站
-    for i in range(13, len(input_station)):
-        station_name = input_station["station_name"][i]
-        lon=input_station["longitude"][i]
-        lat=input_station["latitude"][i]
-        adjust_x=0
-        adjust_y=0
-        if i==16: #KAU026
-            adjust_x=-0.2
-            adjust_y=0.05
-        if i==17: #CHY118
-            adjust_x=-0.3
-            adjust_y=-0.3
-        if i==18: #KAU025	
-            adjust_x=0.25
-            adjust_y=-0.01
-        if i==19: #CHY089
-            adjust_x=-0.1
-            adjust_y=-0.3
-        if i==21: #KAU023
-            adjust_x=-0.1
-            adjust_y=-0.1
-        if i==24: #KAU024
-            adjust_x=-0.4
-            adjust_y=-0.1
-        ann=ax.annotate(
-            f"{station_name}", 
-            xy=(lon, lat),
-            xytext=(lon-0.2-adjust_x,lat-0.2-adjust_y),
-            fontsize=10,
-            arrowprops=dict(arrowstyle='-', color='gray'),
-            bbox=dict(facecolor='white', edgecolor='gray', boxstyle='round')
-        )
+# if len(input_station) >= 25:
+#     input_station = input_station[:25]
+# # 標示測站
+#     for i in range(13, len(input_station)):
+#         station_name = input_station["station_name"][i]
+#         lon=input_station["longitude"][i]
+#         lat=input_station["latitude"][i]
+#         adjust_x=0
+#         adjust_y=0
+#         # if i==16: #KAU026
+#         #     adjust_x=-0.2
+#         #     adjust_y=0.05
+#         # if i==17: #CHY118
+#         #     adjust_x=-0.3
+#         #     adjust_y=-0.3
+#         # if i==18: #KAU025	
+#         #     adjust_x=0.25
+#         #     adjust_y=-0.01
+#         # if i==19: #CHY089
+#         #     adjust_x=-0.1
+#         #     adjust_y=-0.3
+#         # if i==21: #KAU023
+#         #     adjust_x=-0.1
+#         #     adjust_y=-0.1
+#         # if i==24: #KAU024
+#         #     adjust_x=-0.4
+#         #     adjust_y=-0.1
+#         ann=ax.annotate(
+#             f"{station_name}", 
+#             xy=(lon, lat),
+#             xytext=(lon-0.2-adjust_x,lat-0.2-adjust_y),
+#             fontsize=10,
+#             arrowprops=dict(arrowstyle='-', color='gray'),
+#             bbox=dict(facecolor='white', edgecolor='gray', boxstyle='round')
+#         )
 
-# fig.savefig(f"./predict/meinong earthquake/{mask_after_sec}_sec_station_input.png")
+fig.savefig(f"./predict/acc predict pga 1999_2019/model 2 meinong intensity map/{mask_after_sec}_sec_station_input.png")

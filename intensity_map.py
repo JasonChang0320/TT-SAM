@@ -10,9 +10,8 @@ from plot_predict_map import (
     warning_time_hist,
 )
 
-mask_after_sec = 5
-EQ_ID = 24784
-trigger_station_threshold = 1
+mask_after_sec = 10
+EQ_ID = 25193
 label_type = "pga"
 if label_type == "pga":
     label_threshold = np.log10(9.8 * 0.025)
@@ -20,17 +19,17 @@ if label_type == "pga":
 if label_type == "pgv":
     label_threshold = np.log10(0.15)
     intensity = "V"
-path = "./predict"
-Afile_path = "data/Afile"
+path = "./predict/acc predict pga 1999_2019"
+Afile_path = "data preprocess/events_traces_catalog"
 
-catalog = pd.read_csv(f"{Afile_path}/final catalog (station exist)_filtered.csv")
+catalog = pd.read_csv(f"{Afile_path}/1999_2019_final_catalog.csv")
 traces_info = pd.read_csv(
-    f"{Afile_path}/1991-2020 traces with picking and label_new (sta location exist)_filtered.csv"
+    f"{Afile_path}/2009_2019_picked_traces_p_arrival_abstime_labeled_nostaoverlap.csv"
 )
-prediction = pd.read_csv(f"{path}/model 37 {mask_after_sec} sec prediction.csv")
+prediction = pd.read_csv(f"{path}/model 2 {mask_after_sec} sec prediction.csv")
 station_info = pd.read_csv("data/station information/TSMIPstations_new.csv")
 
-data_path = "D:/TEAM_TSMIP/data/TSMIP_filtered.hdf5"
+data_path = "D:/TEAM_TSMIP/data/TSMIP_1999_2019.hdf5"
 dataset = h5py.File(data_path, "r")
 p_picks = dataset["data"][str(EQ_ID)]["p_picks"][:].tolist()
 label_time = dataset["data"][str(EQ_ID)][f"{label_type}_time"][:].tolist()
@@ -79,7 +78,7 @@ event_prediction = pd.merge(
     how="left",
     on=["station_name"],
 )
-# event_prediction.to_csv(f"{path}/{mask_after_sec}_sec_meinong_eq_record_prediction.csv",index=False)
+event_prediction.to_csv(f"{path}/{mask_after_sec}_sec_meinong_eq_record_prediction.csv",index=False)
 
 event = catalog[catalog["EQ_ID"] == EQ_ID]
 event = event.assign(
@@ -91,16 +90,17 @@ event = event.assign(
 fig, ax = plot_intensity_map(
     trace_info=event_prediction,
     eventmeta=event,
-    label_type="pga",
+    label_type=label_type,
     true_label=event_prediction["answer"],
     pred_label=event_prediction["predict"],
     sec=mask_after_sec,
     EQ_ID=EQ_ID,
     grid_method="linear",
     pad=100,
+    title="2016 Meinong Earthquake PGA intensity Map",
 )
-# fig.savefig(f"{path}/meinong earthquake/{mask_after_sec} sec intensity map.png",
-#             dpi=300)
+# fig.savefig(f"{path}/{mask_after_sec} sec intensity map.png",
+#             dpi=450,bbox_inches='tight')
 
 fig, ax = warning_map(
     trace_info=event_prediction,
@@ -114,17 +114,14 @@ fig, ax = warning_map(
 
 # fig.savefig(f"{path}/meinong earthquake/{mask_after_sec} sec warning map.png",
 #             dpi=300)
-
 fig, ax = correct_warning_with_epidist(
     event_prediction=event_prediction,
     label_threshold=label_threshold,
     label_type=label_type,
     mask_after_sec=mask_after_sec,
 )
-
 # fig.savefig(f"{path}/meinong earthquake/{mask_after_sec} sec epidist vs time.png",
 #             dpi=300)
-
 fig, ax = warning_time_hist(
     prediction,
     catalog,
@@ -133,29 +130,78 @@ fig, ax = warning_time_hist(
     warning_mag_threshold=4,
     label_threshold=label_threshold,
     label_type=label_type,
+    bins=14,
 )
-# fig.savefig(f"{path}/meinong earthquake/{mask_after_sec} sec warning stations hist.png",
-#             dpi=300)
+# fig.savefig(
+#     f"{path}/{mask_after_sec} sec warning stations hist.pdf",
+#     dpi=300,
+#     bbox_inches="tight",
+# )
 
-true_predict_filter = (prediction["predict"] > label_threshold) & (
+true_correct_filter = (prediction["predict"] > label_threshold) & (
     (prediction["answer"] > label_threshold)
 )
+false_correct_filter = (prediction["predict"] <= label_threshold) & (
+    (prediction["answer"] <= label_threshold)
+)
+prediction[true_correct_filter | false_correct_filter]
 eq_id_filter = prediction["EQ_ID"] == EQ_ID
 fig, ax = true_predicted(
-    y_true=prediction[eq_id_filter & ~true_predict_filter]["answer"],
-    y_pred=prediction[eq_id_filter & ~true_predict_filter]["predict"],
+    y_true=prediction["answer"],
+    y_pred=prediction["predict"],
     time=mask_after_sec,
     quantile=False,
     agg="point",
     point_size=70,
     target=label_type,
 )
-ax.scatter(
-    prediction[eq_id_filter & true_predict_filter]["answer"],
-    prediction[eq_id_filter & true_predict_filter]["predict"],
-    s=70,
-    c="red",
-    alpha=0.5,
-)
+# ax.scatter(
+#     prediction[eq_id_filter & true_predict_filter]["answer"],
+#     prediction[eq_id_filter & true_predict_filter]["predict"],
+#     s=70,
+#     c="red",
+#     alpha=0.5,
+# )
 # fig.savefig(f"{path}/meinong earthquake/{mask_after_sec} sec true vs predict.png",
 #             dpi=300)
+
+
+##############################################################
+import matplotlib.pyplot as plt
+import seaborn as sns
+before_catalog=pd.read_csv(f"{Afile_path}/2009_2019_ok_events_p_arrival_abstime.csv")
+after_catalog=pd.read_csv(f"{Afile_path}/1999_2019_final_catalog.csv")
+
+before_catalog["task"]="2009~2019"
+after_catalog["task"]="1999~2019"
+
+catalog=pd.concat([before_catalog,after_catalog])
+catalog.reset_index(inplace=True,drop=True)
+
+fig,ax=plt.subplots(figsize=(7,7))
+sns.histplot(catalog,x="magnitude", hue="task",alpha=1,ax=ax)
+ax.set_title("events_catalog")
+ax.set_yscale("log")
+
+######
+before_trace=pd.read_csv(f"{Afile_path}/2009_2019_picked_traces_p_arrival_abstime_labeled_nostaoverlap.csv")
+after_trace=pd.read_csv(f"{Afile_path}/1999_2019_final_traces.csv")
+
+before_trace["task"]="2009~2019"
+after_trace["task"]="1999~2019"
+
+trace=pd.concat([before_trace,after_trace])
+trace.reset_index(inplace=True,drop=True)
+label = ["2", "3", "4", "5-", "5+", "6-", "6+", "7"]
+pga_threshold = np.log10(
+    [0.025, 0.080, 0.250, 0.80, 1.4, 2.5, 4.4, 8.0,10])
+fig,ax=plt.subplots(figsize=(7,7))
+sns.histplot(trace,x="pga", hue="task",alpha=1,ax=ax,bins=32)
+for i in range(len(pga_threshold) - 1):
+    ax.text((pga_threshold[i] + pga_threshold[i + 1]) / 2, 10000, label[i])
+ax.vlines(pga_threshold[1:-1], 0, 40000, linestyles="dotted", color="k")
+ax.set_title("traces_catalog")
+ax.set_yscale("log")
+
+len(after_trace.query(f"pga >={pga_threshold[2]}"))/len(after_trace)
+len(before_trace.query(f"pga >={pga_threshold[2]}"))/len(before_trace)
