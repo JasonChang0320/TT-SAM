@@ -15,17 +15,19 @@ from CNN_Transformer_Mixtureoutput_TEAM import (
     MLP,
     PositionEmbedding,
     TransformerEncoder,
-    full_model,
+    full_model
 )
-from multiple_sta_dataset import multiple_station_dataset_outputs
+from multiple_sta_dataset import CustomSubset, multiple_station_dataset
 
 
 def train_process(
     full_Model, optimizer, hyper_param, num_of_gaussian=5, train_data_size=0.8
 ):
-    experiment = mlflow.get_experiment_by_name("acc & vel predict PGA, test 2016")
+    experiment = mlflow.get_experiment_by_name(
+        "acc predict PGA, train data: 1999_2019, test: 2016"
+    )
     with mlflow.start_run(
-        run_name="TSMIP_EEW_random_sec_dis", experiment_id=experiment.experiment_id
+        run_name="random_sec_right_station_masked_data_length_10s", experiment_id=experiment.experiment_id
     ) as run:
         log_params(
             {
@@ -39,17 +41,17 @@ def train_process(
         cudnn.benchmark = True
         # full_data=multiple_station_dataset("D:/TEAM_TSMIP/data/TSMIP_new.hdf5",train_mode=True,oversample=1.5,
         #                                         mask_waveform_sec=3,test_year=2018)
-        full_data = multiple_station_dataset_outputs(
-            "D:/TEAM_TSMIP/data/TSMIP_filtered.hdf5",
+        full_data = multiple_station_dataset(
+            "D:/TEAM_TSMIP/data/TSMIP_1999_2019_undersample.hdf5",
             mode="train",
             mask_waveform_sec=3,
             weight_label=False,
             oversample=1.5,
             test_year=2016,
             mask_waveform_random=True,
-            label_keys=["pga"],
-            input_type=["acc", "vel"],
-            data_length_sec=10,
+            label_key="pga",
+            input_type="acc",
+            data_length_sec=15,
         )
 
         train_set_size = int(len(full_data) * train_data_size)
@@ -111,7 +113,10 @@ def train_process(
         validation_loss = []
         print(f'train {hyper_param["num_epochs"]} times')
         the_last_loss = 100  # initial early stop value
-        patience = 8
+        if hyper_param["learning_rate"]>=5e-05:
+            patience = 10
+        if hyper_param["learning_rate"]>=1e-05:
+            patience = 15
         trigger_times = 0
         for epoch in range(hyper_param["num_epochs"]):
             print(f"Epoch:{epoch}")
@@ -120,7 +125,7 @@ def train_process(
                 optimizer.zero_grad()
                 weight, sigma, mu = full_Model(sample)
                 pga_label = (
-                    sample["pga"]
+                    sample["label"]
                     .reshape(hyper_param["batch_size"], full_data.label_target, 1)
                     .cuda()
                 )
@@ -152,7 +157,7 @@ def train_process(
                 weight, sigma, mu = full_Model(sample)
 
                 pga_label = (
-                    sample["pga"]
+                    sample["label"]
                     .reshape(hyper_param["batch_size"], full_data.label_target, 1)
                     .cuda()
                 )
@@ -224,11 +229,13 @@ def train_process(
 if __name__ == "__main__":
     train_data_size = 0.8
     model_index = 0
-    num_epochs = 100
+    num_epochs = 200
     # batch_size=16
-    for batch_size in [16, 32]:
-        for LR in [5e-5, 1e-5]:
-            for i in range(10):
+    for batch_size in [32,16]:
+        for LR in [2.5e-5,5e-5]:
+            for i in range(4):
+                if LR< 5e-5:
+                    num_epochs = 300
                 model_index += 1
                 hyper_param = {
                     "model_index": model_index,
@@ -241,7 +248,7 @@ if __name__ == "__main__":
                 emb_dim = 150
                 mlp_dims = (150, 100, 50, 30, 10)
 
-                CNN_model = CNN(mlp_input=3665).cuda()
+                CNN_model = CNN(mlp_input=5665).cuda()
                 pos_emb_model = PositionEmbedding(emb_dim=emb_dim).cuda()
                 transformer_model = TransformerEncoder()
                 mlp_model = MLP(input_shape=(emb_dim,), dims=mlp_dims).cuda()
@@ -254,9 +261,10 @@ if __name__ == "__main__":
                     mlp_model,
                     mdn_model,
                     pga_targets=25,
-                    data_length=2000,
+                    data_length=3000,
                 )
-
+                # full_Model.load_state_dict(torch.load("mlruns/2/ebd8e01aefae4fc59929c5a07cc6fffb/artifacts/model2.pt"))
+                # full_Model.train()
                 optimizer = torch.optim.Adam(
                     [
                         {"params": CNN_model.parameters()},
@@ -269,12 +277,3 @@ if __name__ == "__main__":
                 training_loss, validation_loss = train_process(
                     full_Model, optimizer, hyper_param
                 )
-            # save model
-            # path="../multi-station/consider station zero padding mask/mask after p_picking 3 sec"
-            # FILE = f'{path}/model/target position not influence each other/{num_epochs} epoch model_lr{LR}_batch_size{batch_size}_earlystop oversample sort_picks.pt'
-            # torch.save(full_Model.state_dict(), FILE)
-            # #save loss result
-            # with open(f"{path}/loss/target position not influence each other/{num_epochs} epoch mdn_training loss_lr{LR}_batch_size{batch_size}_earlystop oversample sort_picks", "wb") as fp:
-            #     pickle.dump(training_loss, fp)
-            # with open(f"{path}/loss/target position not influence each other/{ensamble_index} {num_epochs} epoch mdn_validation loss_lr{LR}_batch_size{batch_size}_earlystop oversample sort_picks", "wb") as fp:
-            #     pickle.dump(validation_loss, fp)

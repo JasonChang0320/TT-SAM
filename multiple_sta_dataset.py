@@ -369,7 +369,6 @@ class multiple_station_dataset(Dataset):
                         random_mask_sec * self.sampling_rate
                     ):
                         Specific_waveforms[i, :, :] = 0
-                        #還沒收到waveform的測站不能先被看到 !
                         stations_location[i]=np.zeros_like(station_location)
             elif self.mask_waveform_sec:
                 Specific_waveforms[
@@ -382,7 +381,6 @@ class multiple_station_dataset(Dataset):
                         self.mask_waveform_sec * self.sampling_rate
                     ):
                         Specific_waveforms[i, :, :] = 0
-                        #還沒收到waveform的測站不能先被看到 !
                         stations_location[i]=np.zeros_like(station_location)
             Stations_location = np.array(stations_location)
             label_targets_location = np.array(label_targets_location)
