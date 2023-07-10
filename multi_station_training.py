@@ -24,7 +24,7 @@ def train_process(
     full_Model, optimizer, hyper_param, num_of_gaussian=5, train_data_size=0.8
 ):
     experiment = mlflow.get_experiment_by_name(
-        "acc predict PGA, train data: 1999_2019, test: 2016"
+        "1999~2019 magnitude>=5"
     )
     with mlflow.start_run(
         run_name="random_sec_right_station_masked_data_length_10s", experiment_id=experiment.experiment_id
@@ -42,13 +42,14 @@ def train_process(
         # full_data=multiple_station_dataset("D:/TEAM_TSMIP/data/TSMIP_new.hdf5",train_mode=True,oversample=1.5,
         #                                         mask_waveform_sec=3,test_year=2018)
         full_data = multiple_station_dataset(
-            "D:/TEAM_TSMIP/data/TSMIP_1999_2019_undersample.hdf5",
+            "D:/TEAM_TSMIP/data/TSMIP_1999_2019.hdf5",
             mode="train",
             mask_waveform_sec=3,
             weight_label=False,
             oversample=1.5,
             test_year=2016,
             mask_waveform_random=True,
+            mag_threshold=5,
             label_key="pga",
             input_type="acc",
             data_length_sec=15,
@@ -233,7 +234,7 @@ if __name__ == "__main__":
     # batch_size=16
     for batch_size in [32,16]:
         for LR in [2.5e-5,5e-5]:
-            for i in range(4):
+            for i in range(2):
                 if LR< 5e-5:
                     num_epochs = 300
                 model_index += 1
