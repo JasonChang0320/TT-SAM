@@ -130,29 +130,39 @@ ax.legend(loc="center right")
 # new_data=multiple_station_dataset_new("D:/TEAM_TSMIP/data/TSMIP_new.hdf5",mode="train",mask_waveform_sec=3,
 #                                                 oversample_by_labels=True,dowmsampling=True,oversample=1,label_key="pgv",test_year=2016)
 origin_data = multiple_station_dataset(
-    "D:/TEAM_TSMIP/data/TSMIP_filtered.hdf5",
+    "D:/TEAM_TSMIP/data/TSMIP_1999_2019.hdf5",
     mode="train",
     mask_waveform_sec=3,
+    weight_label=False,
     oversample=1,
-    oversample_mag=4,
-    input_type="acc",
+    oversample_mag=5,
+    test_year=2016,
+    mask_waveform_random=True,
+    mag_threshold=5,
     label_key="pga",
-    weight_label=False
+    input_type="acc",
+    data_length_sec=15,
+    part_small_event=True
 )
 new_data = multiple_station_dataset(
-    "D:/TEAM_TSMIP/data/TSMIP_filtered.hdf5",
+    "D:/TEAM_TSMIP/data/TSMIP_1999_2019.hdf5",
     mode="train",
     mask_waveform_sec=3,
+    weight_label=False,
     oversample=1.5,
-    oversample_mag=4,
-    input_type="acc",
+    oversample_mag=5,
+    test_year=2016,
+    mask_waveform_random=True,
+    mag_threshold=5,
     label_key="pga",
-    weight_label=False
+    input_type="acc",
+    data_length_sec=15,
+    part_small_event=True
 )
 # oversample_data=multiple_station_dataset_new("D:/TEAM_TSMIP/data/TSMIP.hdf5",train_mode=True,mask_waveform_sec=5,oversample=1.5,oversample_mag=5)
-pre1 = pd.read_csv(
-    f"./predict/model 37 3 sec prediction.csv"
-)
+# pre1 = pd.read_csv(
+#     f"./predict/model 37 3 sec prediction.csv"
+# )
 
 # train_set_size = int(len(new_data) * 0.8)
 # valid_set_size = len(new_data) - train_set_size
@@ -188,7 +198,7 @@ for sample in tqdm(origin_loader):
     ).tolist()
     origin_PGA.extend(tmp_pga)
 origin_PGA_array = np.array(origin_PGA)
-high_intensity_rate = np.sum(origin_PGA_array > np.log10(0.057)) / len(origin_PGA_array)
+high_intensity_rate = np.sum(origin_PGA_array > np.log10(0.250)) / len(origin_PGA_array)
 print(f"origin rate:{high_intensity_rate}")
 
 new_PGA = []
@@ -198,7 +208,7 @@ for sample in tqdm(new_loader):
     ).tolist()
     new_PGA.extend(tmp_pga)
 new_PGA_array = np.array(new_PGA)
-oversampled_high_intensity_rate = np.sum(new_PGA_array > np.log10(0.057)) / len(
+oversampled_high_intensity_rate = np.sum(new_PGA_array > np.log10(0.250)) / len(
     new_PGA_array
 )
 print(f"oversampled rate:{oversampled_high_intensity_rate}")
@@ -222,10 +232,10 @@ pga_threshold = np.log10(
 # )
 
 fig, ax = plt.subplots(figsize=(7, 7))
-# ax.hist(new_PGA, bins=32, edgecolor="k", label="oversampled train data", alpha=0.6)
+ax.hist(new_PGA, bins=32, edgecolor="k", label="oversampled train data", alpha=0.6)
 ax.hist(origin_PGA, bins=32, edgecolor="k", label="train data", alpha=0.6)
 # ax.hist(new_PGA1,bins=32,edgecolor="k",label="mag>=4.5")
-ax.hist(pre1["answer"], bins=28, edgecolor="k", label="2016 data")
+# ax.hist(pre1["answer"], bins=28, edgecolor="k", label="2016 data")
 ax.vlines(pga_threshold[1:-1], 0, 40000, linestyles="dotted", color="k")
 for i in range(len(pga_threshold) - 1):
     ax.text((pga_threshold[i] + pga_threshold[i + 1]) / 2, 50000, label[i])
@@ -234,7 +244,7 @@ ax.set_xlabel(r"log(PGA (${m/s^2}$))",size=14)
 ax.set_title("TSMIP data PGA distribution",size=16)
 ax.set_yscale("log")
 fig.legend(loc="upper right")
-fig.savefig("PGA distribution.pdf", dpi=300,bbox_inches='tight')
+# fig.savefig("PGA distribution.pdf", dpi=300,bbox_inches='tight')
 
 # test label ditribution
 pre1 = pd.read_csv("predict/model1 2 3 sec 1 triggered station prediction.csv")
