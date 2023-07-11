@@ -10,23 +10,23 @@ from plot_predict_map import (
     warning_time_hist,
 )
 
-mask_after_sec = 10
-EQ_ID = 25193
+mask_after_sec = 5
+EQ_ID = 24784
 label_type = "pga"
 if label_type == "pga":
-    label_threshold = np.log10(9.8 * 0.025)
+    label_threshold = np.log10(0.25)
     intensity = "IV"
 if label_type == "pgv":
     label_threshold = np.log10(0.15)
     intensity = "V"
-path = "./predict/acc predict pga 1999_2019"
+path = "./predict"
 Afile_path = "data preprocess/events_traces_catalog"
 
 catalog = pd.read_csv(f"{Afile_path}/1999_2019_final_catalog.csv")
 traces_info = pd.read_csv(
     f"{Afile_path}/2009_2019_picked_traces_p_arrival_abstime_labeled_nostaoverlap.csv"
 )
-prediction = pd.read_csv(f"{path}/model 2 {mask_after_sec} sec prediction.csv")
+prediction = pd.read_csv(f"{path}/{mask_after_sec} sec ensemble (origin & big event model).csv")
 station_info = pd.read_csv("data/station information/TSMIPstations_new.csv")
 
 data_path = "D:/TEAM_TSMIP/data/TSMIP_1999_2019.hdf5"
@@ -78,7 +78,9 @@ event_prediction = pd.merge(
     how="left",
     on=["station_name"],
 )
-event_prediction.to_csv(f"{path}/{mask_after_sec}_sec_meinong_eq_record_prediction.csv",index=False)
+# event_prediction.to_csv(
+#     f"{path}/{mask_after_sec}_sec_meinong_eq_record_prediction.csv", index=False
+# )
 
 event = catalog[catalog["EQ_ID"] == EQ_ID]
 event = event.assign(
@@ -166,42 +168,67 @@ fig, ax = true_predicted(
 #             dpi=300)
 
 
-##############################################################
+############################################################## M3.5 + M5.5
 import matplotlib.pyplot as plt
 import seaborn as sns
-before_catalog=pd.read_csv(f"{Afile_path}/2009_2019_ok_events_p_arrival_abstime.csv")
-after_catalog=pd.read_csv(f"{Afile_path}/1999_2019_final_catalog.csv")
 
-before_catalog["task"]="2009~2019"
-after_catalog["task"]="1999~2019"
+before_catalog = pd.read_csv(f"{Afile_path}/2009_2019_ok_events_p_arrival_abstime.csv")
+after_catalog = pd.read_csv(f"{Afile_path}/1999_2019_final_catalog.csv")
 
-catalog=pd.concat([before_catalog,after_catalog])
-catalog.reset_index(inplace=True,drop=True)
+before_catalog["from"] = "2009~2019 M>=3.5"
+after_catalog["from"] = "1999~2008 M>=5.5"
 
-fig,ax=plt.subplots(figsize=(7,7))
-sns.histplot(catalog,x="magnitude", hue="task",alpha=1,ax=ax)
-ax.set_title("events_catalog")
+catalog = pd.concat([before_catalog, after_catalog])
+catalog.reset_index(inplace=True, drop=True)
+
+fig, ax = plt.subplots(figsize=(7, 7))
+sns.histplot(catalog, x="magnitude", hue="from", alpha=1, ax=ax)
+ax.set_title("Events Catalog", fontsize=20)
 ax.set_yscale("log")
+ax.set_xlabel("Magnitude", fontsize=13)
+ax.set_ylabel("Count", fontsize=13)
+###### trace 
+before_trace = pd.read_csv(
+    f"{Afile_path}/2009_2019_picked_traces_p_arrival_abstime_labeled_nostaoverlap.csv"
+)
+after_trace = pd.read_csv(f"{Afile_path}/1999_2019_final_traces.csv")
 
-######
-before_trace=pd.read_csv(f"{Afile_path}/2009_2019_picked_traces_p_arrival_abstime_labeled_nostaoverlap.csv")
-after_trace=pd.read_csv(f"{Afile_path}/1999_2019_final_traces.csv")
+before_trace["from"] = "2009~2019 M>=3.5"
+after_trace["from"] = "1999~2008 M>=5.5"
 
-before_trace["task"]="2009~2019"
-after_trace["task"]="1999~2019"
-
-trace=pd.concat([before_trace,after_trace])
-trace.reset_index(inplace=True,drop=True)
+trace = pd.concat([before_trace, after_trace])
+trace.reset_index(inplace=True, drop=True)
 label = ["2", "3", "4", "5-", "5+", "6-", "6+", "7"]
-pga_threshold = np.log10(
-    [0.025, 0.080, 0.250, 0.80, 1.4, 2.5, 4.4, 8.0,10])
-fig,ax=plt.subplots(figsize=(7,7))
-sns.histplot(trace,x="pga", hue="task",alpha=1,ax=ax,bins=32)
+pga_threshold = np.log10([0.025, 0.080, 0.250, 0.80, 1.4, 2.5, 4.4, 8.0, 10])
+fig, ax = plt.subplots(figsize=(7, 7))
+sns.histplot(trace, x="pga", hue="from", alpha=1, ax=ax, bins=32)
 for i in range(len(pga_threshold) - 1):
     ax.text((pga_threshold[i] + pga_threshold[i + 1]) / 2, 10000, label[i])
 ax.vlines(pga_threshold[1:-1], 0, 40000, linestyles="dotted", color="k")
-ax.set_title("traces_catalog")
+ax.set_title("Traces catalog", fontsize=20)
 ax.set_yscale("log")
+ax.set_xlabel("PGA log(m/s^2)", fontsize=13)
+ax.set_ylabel("Count", fontsize=13)
 
-len(after_trace.query(f"pga >={pga_threshold[2]}"))/len(after_trace)
-len(before_trace.query(f"pga >={pga_threshold[2]}"))/len(before_trace)
+print(len(before_trace.query(f"pga >={pga_threshold[2]}")) / len(before_trace))
+print(len(after_trace.query(f"pga >={pga_threshold[2]}")) / len(after_trace))
+###### undersample
+catalog=pd.read_csv(f"{Afile_path}/1999_2019_final_catalog.csv")
+traces=pd.merge(after_trace,catalog,on="EQ_ID",how="left")
+trace_num=traces["EQ_ID"].value_counts()
+catalog["trace_num"]=catalog["EQ_ID"].map(trace_num)
+
+drop_event=catalog.query("magnitude < 4 & trace_num < 25")
+
+under_sampled_catalog=pd.concat([catalog,drop_event])
+under_sampled_catalog.drop_duplicates(subset="EQ_ID",keep=False,inplace=True)
+undersampled_trace=after_trace[after_trace["EQ_ID"].isin(under_sampled_catalog["EQ_ID"])]
+
+
+# drop_event=catalog[catalog["magnitude"]<4.5].sample(frac=0.5)
+# under_sampled_catalog=pd.concat([catalog,drop_event])
+# under_sampled_catalog.drop_duplicates(subset="EQ_ID",keep=False,inplace=True)
+# undersampled_trace=after_trace[after_trace["EQ_ID"].isin(under_sampled_catalog["EQ_ID"])]
+
+print(len(traces.query(f"pga >={pga_threshold[2]}")) / len(after_trace))
+print(len(undersampled_trace.query(f"pga >={pga_threshold[2]}")) / len(undersampled_trace))
