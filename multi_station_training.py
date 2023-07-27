@@ -15,19 +15,27 @@ from CNN_Transformer_Mixtureoutput_TEAM import (
     MLP,
     PositionEmbedding,
     TransformerEncoder,
-    full_model
+    full_model,
 )
 from multiple_sta_dataset import CustomSubset, multiple_station_dataset
 
 
 def train_process(
-    full_Model, optimizer, hyper_param, num_of_gaussian=5, train_data_size=0.8
+    full_Model,
+    full_data,
+    optimizer,
+    hyper_param,
+    num_of_gaussian=5,
+    train_data_size=0.8,
+    experiment_name=None,
+    run_name=None
 ):
     experiment = mlflow.get_experiment_by_name(
-        "1999~2019 magnitude>=5"
+        experiment_name
     )
     with mlflow.start_run(
-        run_name="random_sec_right_station_masked_data_length_10s", experiment_id=experiment.experiment_id
+        run_name=run_name,
+        experiment_id=experiment.experiment_id,
     ) as run:
         log_params(
             {
@@ -41,19 +49,6 @@ def train_process(
         cudnn.benchmark = True
         # full_data=multiple_station_dataset("D:/TEAM_TSMIP/data/TSMIP_new.hdf5",train_mode=True,oversample=1.5,
         #                                         mask_waveform_sec=3,test_year=2018)
-        full_data = multiple_station_dataset(
-            "D:/TEAM_TSMIP/data/TSMIP_1999_2019.hdf5",
-            mode="train",
-            mask_waveform_sec=3,
-            weight_label=False,
-            oversample=1.5,
-            test_year=2016,
-            mask_waveform_random=True,
-            mag_threshold=5,
-            label_key="pga",
-            input_type="acc",
-            data_length_sec=15,
-        )
 
         train_set_size = int(len(full_data) * train_data_size)
         valid_set_size = len(full_data) - train_set_size
@@ -114,10 +109,11 @@ def train_process(
         validation_loss = []
         print(f'train {hyper_param["num_epochs"]} times')
         the_last_loss = 100  # initial early stop value
-        if hyper_param["learning_rate"]>=5e-05:
+        if hyper_param["learning_rate"] >= 5e-05:
             patience = 10
-        if hyper_param["learning_rate"]>=1e-05:
+        elif hyper_param["learning_rate"] >= 0:
             patience = 15
+        print("patience",patience)
         trigger_times = 0
         for epoch in range(hyper_param["num_epochs"]):
             print(f"Epoch:{epoch}")
@@ -232,10 +228,10 @@ if __name__ == "__main__":
     model_index = 0
     num_epochs = 200
     # batch_size=16
-    for batch_size in [32,16]:
-        for LR in [2.5e-5,5e-5]:
-            for i in range(2):
-                if LR< 5e-5:
+    for batch_size in [32, 16]:
+        for LR in [2.5e-5, 5e-5]:
+            for i in range(3):
+                if LR < 5e-5:
                     num_epochs = 300
                 model_index += 1
                 hyper_param = {
@@ -275,6 +271,26 @@ if __name__ == "__main__":
                     ],
                     lr=LR,
                 )
+                full_data = multiple_station_dataset(
+                    "D:/TEAM_TSMIP/data/TSMIP_1999_2019.hdf5",
+                    mode="train",
+                    mask_waveform_sec=3,
+                    weight_label=False,
+                    oversample=1.5,
+                    oversample_mag=4,
+                    test_year=2018,
+                    mask_waveform_random=True,
+                    mag_threshold=0,
+                    label_key="pga",
+                    input_type="acc",
+                    data_length_sec=15,
+                    # part_small_event=True
+                )
                 training_loss, validation_loss = train_process(
-                    full_Model, optimizer, hyper_param
+                    full_Model,
+                    full_data,
+                    optimizer,
+                    hyper_param,
+                    experiment_name="acc predict PGA, train data: 1999_2019, test: 2018",
+                    run_name="random_sec_right_station_masked_data_length_10s"
                 )

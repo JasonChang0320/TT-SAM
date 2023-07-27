@@ -156,6 +156,7 @@ class CNN(nn.Module):
 class PositionEmbedding(nn.Module):  # paper page11 B.2
     def __init__(
         self, wavelengths=((5, 30), (110, 123), (0.01, 5000)), emb_dim=500, **kwargs
+        # self, wavelengths=((21, 26), (119, 123), (0.01, 4000)), emb_dim=500, **kwargs
     ):
         super(PositionEmbedding, self).__init__(**kwargs)
         # Format: [(min_lat, max_lat), (min_lon, max_lon), (min_depth, max_depth)]
