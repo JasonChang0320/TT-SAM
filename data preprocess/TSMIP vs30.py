@@ -5,8 +5,6 @@ sta_path = "../data/station_information"
 start_year = 1999
 end_year = 2019
 trace = pd.read_csv(f"./events_traces_catalog/{start_year}_{end_year}_final_traces.csv")
-# trace=trace[trace["pga"]>=np.log10(0.25)]
-# trace=trace[trace["intensity"]>=4]
 station_info = pd.read_csv(f"{sta_path}/TSMIPstations_new.csv")
 vs30_info = pd.read_csv(f"{sta_path}/egdt_TSMIP_station_vs30.csv")
 
@@ -51,7 +49,7 @@ total_station_value_counts=pd.merge(total_station_value_counts,station_info[["lo
 import cartopy.crs as ccrs
 import matplotlib.pyplot as plt
 
-# plot station map with vs30 or not & check number of records received by stations
+# plot station map with vs30 or not
 src_crs = ccrs.PlateCarree()
 fig, ax_map = plt.subplots(subplot_kw={"projection": src_crs}, figsize=(7, 7))
 ax_map.coastlines("10m")
@@ -61,30 +59,29 @@ ax_map.scatter(
     edgecolors="k",
     linewidth=1,
     marker="o",
-    s=total_station_value_counts["counts"]/2,
-    # s=10,
+    s=10,
     zorder=3,
-    # label="include Vs30",
+    label="include Vs30",
     alpha=0.5
 )
-# ax_map.scatter(
-#     noVs30_station_value_counts["longitude"],
-#     noVs30_station_value_counts["latitude"],
-#     # c=true_label,
-#     # cmap=cmap,
-#     # norm=norm,
-#     edgecolors="k",
-#     linewidth=1,
-#     marker="o",
-#     s=10,
-#     zorder=3,
-#     label="No Vs30",
-# )
+ax_map.scatter(
+    noVs30_station_value_counts["longitude"],
+    noVs30_station_value_counts["latitude"],
+    edgecolors="k",
+    linewidth=1,
+    marker="o",
+    s=10,
+    zorder=3,
+    label="No Vs30"
+)
 ax_map.set_title("Number of records received by stations")
-# ax_map.legend()
-# fig.savefig("./events_traces_catalog/Number of records received by stations.png",dpi=300)
+ax_map.legend()
+fig.savefig("./events_traces_catalog/Vs30 map.png",dpi=300)
 
-#fill Vs30 missing value
+
+
+#TODO fill Vs30 missing value
+
 import pygmt
 import os
 
