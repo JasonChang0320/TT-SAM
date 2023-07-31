@@ -1,5 +1,5 @@
 import pickle
-
+import os
 import mlflow.pytorch
 import numpy as np
 import torch
@@ -116,7 +116,7 @@ def train_process(
         print("patience",patience)
         trigger_times = 0
         for epoch in range(hyper_param["num_epochs"]):
-            print(f"Epoch:{epoch}")
+            print(f"Epoch:{epoch+1}")
             print("--------------------train_start--------------------")
             for sample in tqdm(train_loader):
                 optimizer.zero_grad()
@@ -180,8 +180,14 @@ def train_process(
             validation_loss.append(val_loss.data)
             log_metrics(
                 {"train_loss": train_loss.item(), "val_loss": val_loss.item()},
-                step=epoch,
+                step=epoch+1,
             )
+            #checkpoint
+            if train_loss.data<-1 and (epoch+1)%5==0:
+                checkpoint_path=f"./model/model{hyper_param['model_index']}_checkpoints"
+                if not os.path.exists(checkpoint_path):
+                    os.makedirs(checkpoint_path)
+                torch.save(full_Model.state_dict(), f"{checkpoint_path}/epoch{epoch+1}_model.pt")
             # epoch early stopping:
             current_loss = val_loss.data
             if current_loss > the_last_loss:
@@ -189,7 +195,7 @@ def train_process(
                 print("early stop trigger times:", trigger_times)
 
                 if trigger_times >= patience:
-                    print(f"Early stopping! stop at epoch: {epoch}")
+                    print(f"Early stopping! stop at epoch: {epoch+1}")
                     with open(
                         f"{path}/train loss{hyper_param['model_index']}", "wb"
                     ) as fp:
@@ -202,7 +208,7 @@ def train_process(
                         log_artifact(
                             f"{path}/validation loss{hyper_param['model_index']}"
                         )
-                    log_param("epoch early stop", epoch)
+                    log_param("epoch early stop", epoch+1)
                     return training_loss, validation_loss
 
                 continue
@@ -229,7 +235,7 @@ if __name__ == "__main__":
     num_epochs = 200
     # batch_size=16
     for batch_size in [32, 16]:
-        for LR in [2.5e-5, 5e-5]:
+        for LR in [5e-5]:
             for i in range(3):
                 if LR < 5e-5:
                     num_epochs = 300
@@ -292,5 +298,5 @@ if __name__ == "__main__":
                     optimizer,
                     hyper_param,
                     experiment_name="acc predict PGA, train data: 1999_2019, test: 2018",
-                    run_name="random_sec_right_station_masked_data_length_10s"
+                    run_name="add check point"
                 )
