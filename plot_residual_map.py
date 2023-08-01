@@ -22,9 +22,8 @@ scatter = ax_map.scatter(
     s=15,
     zorder=3,
     c=meinong_earthquake["predict"] - meinong_earthquake["answer"],
-    cmap="seismic"
-    # label="include Vs30",
-    # alpha=0.5
+    cmap="seismic",
+    alpha=0.5
 )
 cb = plt.colorbar(scatter)
 cb.set_label("predict-answer log10(PGA (m/s^2))")

@@ -3,6 +3,17 @@ import numpy as np
 from numpy import sin, cos, tan, radians
 import math
 from tqdm import tqdm
+import pygmt
+import os
+import cartopy.crs as ccrs
+import matplotlib.pyplot as plt
+from scipy.spatial import distance
+
+
+def grd_to_xyz(input_grd, output_xyz):
+    with pygmt.clib.Session() as session:
+        # 使用pygmt.grd2xyz進行轉換
+        session.call_module("grd2xyz", f"{input_grd} > {output_xyz}")
 
 
 def lonlat_to_97(lon, lat):
@@ -238,6 +249,7 @@ merge_traces = pd.merge(
     right_on="station_code",
 )
 
+
 noVs30_station_value_counts = (
     merge_traces[merge_traces["Vs30"].isna()]["station_name"]
     .value_counts()
@@ -265,9 +277,6 @@ Vs30_station_value_counts = pd.merge(
     right_on="location_code",
 )
 
-
-import cartopy.crs as ccrs
-import matplotlib.pyplot as plt
 
 # plot station map with vs30 or not
 src_crs = ccrs.PlateCarree()
@@ -298,18 +307,8 @@ ax_map.set_title("Vs30 from egdt")
 ax_map.legend()
 # fig.savefig("./events_traces_catalog/Vs30 map.png",dpi=300)
 
-import pygmt
-import os
-
-
-def grd_to_xyz(input_grd, output_xyz):
-    with pygmt.clib.Session() as session:
-        # 使用pygmt.grd2xyz進行轉換
-        session.call_module("grd2xyz", f"{input_grd} > {output_xyz}")
-
 
 file_path = "../data/station_information"
-
 # transfer grd file to xyz file
 # if __name__ == "__main__":
 #     os.getcwd()
@@ -337,8 +336,6 @@ for i in tqdm(range(len(vs30_table))):
 vs30_table = pd.read_csv(f"{file_path}/Vs30ofTaiwan.csv")
 target_points = noVs30_station_value_counts[["longitude", "latitude"]].values.tolist()
 points = vs30_table[["lon", "lat"]].values.tolist()
-import numpy as np
-from scipy.spatial import distance
 
 referenced_table = {
     "index": [],
@@ -384,7 +381,6 @@ ax_map.legend()
 # fig.savefig("./events_traces_catalog/Vs30 filled from Lee map.png",dpi=300)
 
 # fill vs30 into traces table
-merge_traces[merge_traces["Vs30"].isna()]
 
 for index in merge_traces[merge_traces["Vs30"].isna()].index:
     station_name = merge_traces.iloc[index]["station_name"]
@@ -403,10 +399,10 @@ for index in merge_traces[merge_traces["Vs30"].isna()].index:
     )
 
 merge_traces.drop(["location_code", "station_code"], axis=1, inplace=True)
-# merge_traces.to_csv(
-#     f"./events_traces_catalog/{start_year}_{end_year}_final_traces_Vs30.csv",
-#     index=False,
-# )
+merge_traces.to_csv(
+    f"./events_traces_catalog/{start_year}_{end_year}_final_traces_Vs30.csv",
+    index=False,
+)
 
 # plot final vs30 value map
 trace_with_vs30 = pd.read_csv(
