@@ -153,7 +153,7 @@ def plot_intensity_map(
         geoms,
         crs=src_crs,
         edgecolor=["k", "r"],
-        color=["grey", "red"],
+        color=["grey", "dimgray"],
         alpha=0.2,
         zorder=2.5,
     )
@@ -199,7 +199,7 @@ def plot_intensity_map(
     ax_map.set_xlim(xmin, xmax)
     ax_map.set_ylim(ymin, ymax)
     if title:
-        ax_map.set_title(title)
+        ax_map.set_title(title, fontsize=15)
     else:
         ax_map.set_title(
             f"EQ ID: {EQ_ID} {sec} sec Predicted {label_type} Intensity Map"
@@ -395,6 +395,7 @@ def true_predicted(
     axis_fontsize=20,
     point_size=2,
     target="pga",
+    title=None
 ):
     if ax is None:
         fig = plt.figure(figsize=(10, 10))
@@ -460,9 +461,12 @@ def true_predicted(
     for i, label in zip(ticks[2:-2], intensity.label[2:-2]):
         ax.text(i, limits[0], label, va="bottom", fontsize=axis_fontsize - 7)
 
-    ax.set_xlabel(f"ture_{target} log(m/s^2)", fontsize=axis_fontsize)
-    ax.set_ylabel(f"predicted_{target} log(m/s^2)", fontsize=axis_fontsize)
-    ax.set_title(f"{time}s True Predict Plot", fontsize=axis_fontsize + 5)
+    ax.set_xlabel(r"True PGA log(${m/s^2}$)", fontsize=axis_fontsize)
+    ax.set_ylabel(r"Predicted PGA log(${m/s^2}$)", fontsize=axis_fontsize)
+    if title==None:
+        ax.set_title(f"Model prediction", fontsize=axis_fontsize + 5)
+    else:
+        ax.set_title(title, fontsize=axis_fontsize + 5)
     ax.tick_params(axis="x", labelsize=axis_fontsize - 5)
     ax.tick_params(axis="y", labelsize=axis_fontsize - 5)
     # ax.set_ylim(-3.5,1.5)
@@ -552,12 +556,12 @@ def warning_time_hist(
             f"Warning time\n after first triggered station {mask_after_sec} sec",
             fontsize=18,
         )
-    ax.set_xlabel("Warning time (sec)", fontsize=15)
+    ax.set_xlabel("Lead time (sec)", fontsize=15)
     ax.set_ylabel("Number of stations", fontsize=15)
     ax.text(
-        0.45,
+        0.1,
         0.7,
-        f"mean: {mean} s\nstd: {std} s\nmedian: {median}s\nmax: {max} s\neffective warning stations: {count}\nprecision: {precision}\nrecall: {recall}",
+        f"mean: {mean} s\nstd: {std} s\nmedian: {median} s\nmax: {max} s\nwarning stations: {count}\nprecision: {precision}\nrecall: {recall}",
         transform=ax.transAxes,
         fontsize=14,
     )
