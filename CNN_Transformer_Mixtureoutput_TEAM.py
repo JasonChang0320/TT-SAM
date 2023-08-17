@@ -271,9 +271,8 @@ class test:
 test(5, 6).forward(1)
 
 # posi_dim = 500
-# wavelength = ((min_lat, max_lat), (min_lon, max_lon), (min_depth, max_depth))
-# coords_emb = PositionEmbedding(
-#     wavelengths=wavelength, emb_dim=posi_dim)(PositionEmbedding_output).cuda()
+# coords_emb = PositionEmbedding(emb_dim=150).cuda()
+# station_position=torch.DoubleTensor([22.5,119,20]).reshape(-1, 1, 3).float().cuda()
 # Element_Wise_output = Element_Wise(waveforms_emb=CNN_output)(coords_emb).cuda()
 # print("Element_Wise_output: ", Element_Wise_output.shape)
 
@@ -382,9 +381,8 @@ class full_model(nn.Module):
         CNN_output_reshape = torch.reshape(
             CNN_output, (-1, self.max_station, self.emb_dim)
         )
-
         emb_output = self.model_Position(
-            torch.DoubleTensor(data["sta"].reshape(-1, 1, 3)).float().cuda()
+            torch.DoubleTensor(data["sta"].reshape(-1, 1, data["sta"].shape[2])).float().cuda()
         )
         emb_output = emb_output.reshape(-1, self.max_station, self.emb_dim)
         # data[1] 做一個padding mask [batchsize, station number (25)], value: True, False (True: should mask)
@@ -392,7 +390,7 @@ class full_model(nn.Module):
         station_pad_mask = torch.all(station_pad_mask, 2)
 
         pga_pos_emb_output = self.model_Position(
-            torch.DoubleTensor(data["target"].reshape(-1, 1, 3)).float().cuda()
+            torch.DoubleTensor(data["target"].reshape(-1, 1, data["target"].shape[2])).float().cuda()
         )
         pga_pos_emb_output = pga_pos_emb_output.reshape(
             -1, self.pga_targets, self.emb_dim
@@ -508,3 +506,117 @@ def concate_mixture_output(data):
 
 # x = np.linspace(-7,7, 100)
 # plt.plot(x, stats.norm.pdf(x,2,2),'r-', lw=5, alpha=0.6, label='norm pdf')
+class PositionEmbedding_Vs30(nn.Module):  # paper page11 B.2
+    def __init__(
+        self, wavelengths=((5, 30), (110, 123), (0.01, 5000), (100,1600)), emb_dim=500, **kwargs
+        # self, wavelengths=((21, 26), (119, 123), (0.01, 4000)), emb_dim=500, **kwargs
+    ):
+        super(PositionEmbedding_Vs30, self).__init__(**kwargs)
+        # Format: [(min_lat, max_lat), (min_lon, max_lon), (min_depth, max_depth)]
+        self.wavelengths = wavelengths
+        self.emb_dim = emb_dim
+
+        min_lat, max_lat = wavelengths[0]
+        min_lon, max_lon = wavelengths[1]
+        min_depth, max_depth = wavelengths[2]
+        min_vs30, max_vs30 = wavelengths[3]
+        assert emb_dim % 10 == 0
+        lat_dim = emb_dim // 5
+        lon_dim = emb_dim // 5
+        depth_dim = emb_dim // 10
+        vs30_dim= emb_dim// 10
+
+        self.lat_coeff = (
+            2
+            * np.pi
+            * 1.0
+            / min_lat
+            * ((min_lat / max_lat) ** (np.arange(lat_dim) / lat_dim))
+        )
+        self.lon_coeff = (
+            2
+            * np.pi
+            * 1.0
+            / min_lon
+            * ((min_lon / max_lon) ** (np.arange(lon_dim) / lon_dim))
+        )
+        self.depth_coeff = (
+            2
+            * np.pi
+            * 1.0
+            / min_depth
+            * ((min_depth / max_depth) ** (np.arange(depth_dim) / depth_dim))
+        )
+        self.vs30_coeff = (
+            2
+            * np.pi
+            * 1.0
+            / min_vs30
+            * ((min_vs30 / max_vs30) ** (np.arange(vs30_dim) / vs30_dim))
+        )
+
+        lat_sin_mask = np.arange(emb_dim) % 5 == 0
+        # 0~emb_dim % 5==0 -> True --> 一堆True False的矩陣
+        # 共500個T F
+        lat_cos_mask = np.arange(emb_dim) % 5 == 1
+        lon_sin_mask = np.arange(emb_dim) % 5 == 2
+        lon_cos_mask = np.arange(emb_dim) % 5 == 3
+        depth_sin_mask = np.arange(emb_dim) % 10 == 4
+        depth_cos_mask = np.arange(emb_dim) % 10 == 9
+        vs30_sin_mask=np.arange(emb_dim) % 10 == 5
+        vs30_cos_mask=np.arange(emb_dim) % 10 == 8
+
+        self.mask = np.zeros(emb_dim)
+        self.mask[lat_sin_mask] = np.arange(lat_dim)
+        # mask範圍共1000個，lat_sin_mask裡面有200個True，若是True就按照順序把np.arange(lat_dim)塞進去
+        self.mask[lat_cos_mask] = lat_dim + np.arange(lat_dim)
+        self.mask[lon_sin_mask] = 2 * lat_dim + np.arange(lon_dim)
+        self.mask[lon_cos_mask] = 2 * lat_dim + lon_dim + np.arange(lon_dim)
+        self.mask[depth_sin_mask] = 2 * lat_dim + 2 * lon_dim + np.arange(depth_dim)
+        self.mask[depth_cos_mask] = (
+            2 * lat_dim + 2 * lon_dim + depth_dim + np.arange(depth_dim)
+        )
+        self.mask[vs30_sin_mask]=(
+            2 * lat_dim + 2 * lon_dim + 2*depth_dim + np.arange(vs30_dim)
+        )
+        self.mask[vs30_cos_mask]=(
+            2 * lat_dim + 2 * lon_dim + 2*depth_dim +vs30_dim + np.arange(vs30_dim)
+        )
+        self.mask = self.mask.astype("int32")
+
+    def forward(self, x):
+        lat_base = (
+            x[:, :, 0:1].cuda() * torch.Tensor(self.lat_coeff).cuda()
+        )  # 這裡沒用到cuda!!
+        lon_base = x[:, :, 1:2].cuda() * torch.Tensor(self.lon_coeff).cuda()
+        depth_base = x[:, :, 2:3].cuda() * torch.Tensor(self.depth_coeff).cuda()
+        vs30_base= x[:,:,3:4]* torch.Tensor(self.vs30_coeff).cuda()
+        # print(self.lat_coeff.shape)
+        # print(x[:, :, 0:1].shape, 888)
+        # print(lat_base.shape, "555")
+        output = torch.cat(
+            [
+                torch.sin(lat_base),
+                torch.cos(lat_base),
+                torch.sin(lon_base),
+                torch.cos(lon_base),
+                torch.sin(depth_base),
+                torch.cos(depth_base),
+                torch.sin(vs30_base),
+                torch.cos(vs30_base)
+            ],
+            dim=-1,
+        )
+        # print(torch.Tensor(self.mask).shape)
+        # print("output", output.shape)
+        maskk = torch.from_numpy(np.array(self.mask)).long()
+        index = (
+            (maskk.unsqueeze(0).unsqueeze(0)).expand(x.shape[0], 1, self.emb_dim).cuda()
+        )
+        output = torch.gather(output, -1, index).cuda()
+        return output
+    
+# emb_dim=150
+# coords_emb = PositionEmbedding_Vs30(emb_dim=emb_dim).cuda()
+# station_position=torch.DoubleTensor([22.5,119,20,500]).reshape(-1, 1, 4).float().cuda()
+# coords_emb(station_position)

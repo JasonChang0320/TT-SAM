@@ -16,6 +16,7 @@ from CNN_Transformer_Mixtureoutput_TEAM import (
     PositionEmbedding,
     TransformerEncoder,
     full_model,
+    PositionEmbedding_Vs30
 )
 from multiple_sta_dataset import CustomSubset, multiple_station_dataset
 
@@ -190,6 +191,8 @@ def train_process(
                 torch.save(full_Model.state_dict(), f"{checkpoint_path}/epoch{epoch+1}_model.pt")
             # epoch early stopping:
             current_loss = val_loss.data
+            if the_last_loss<-1:
+                patience=15
             if current_loss > the_last_loss:
                 trigger_times += 1
                 print("early stop trigger times:", trigger_times)
@@ -231,14 +234,12 @@ def train_process(
 
 if __name__ == "__main__":
     train_data_size = 0.8
-    model_index = 0
-    num_epochs = 200
+    model_index = 3
+    num_epochs = 300
     # batch_size=16
     for batch_size in [32, 16]:
-        for LR in [5e-5]:
+        for LR in [5e-5,2.5e-5]:
             for i in range(3):
-                if LR < 5e-5:
-                    num_epochs = 300
                 model_index += 1
                 hyper_param = {
                     "model_index": model_index,
@@ -252,7 +253,7 @@ if __name__ == "__main__":
                 mlp_dims = (150, 100, 50, 30, 10)
 
                 CNN_model = CNN(mlp_input=5665).cuda()
-                pos_emb_model = PositionEmbedding(emb_dim=emb_dim).cuda()
+                pos_emb_model = PositionEmbedding_Vs30(emb_dim=emb_dim).cuda()
                 transformer_model = TransformerEncoder()
                 mlp_model = MLP(input_shape=(emb_dim,), dims=mlp_dims).cuda()
                 mdn_model = MDN(input_shape=(mlp_dims[-1],)).cuda()
@@ -278,7 +279,7 @@ if __name__ == "__main__":
                     lr=LR,
                 )
                 full_data = multiple_station_dataset(
-                    "D:/TEAM_TSMIP/data/TSMIP_1999_2019.hdf5",
+                    "D:/TEAM_TSMIP/data/TSMIP_1999_2019_Vs30.hdf5",
                     mode="train",
                     mask_waveform_sec=3,
                     weight_label=False,
@@ -290,13 +291,13 @@ if __name__ == "__main__":
                     label_key="pga",
                     input_type="acc",
                     data_length_sec=15,
-                    # part_small_event=True
+                    station_blind=True
                 )
                 training_loss, validation_loss = train_process(
                     full_Model,
                     full_data,
                     optimizer,
                     hyper_param,
-                    experiment_name="acc predict PGA, train data: 1999_2019, test: 2018",
-                    run_name="add check point"
+                    experiment_name="Vs30",
+                    run_name="test 2018, oversample, station_blind"
                 )

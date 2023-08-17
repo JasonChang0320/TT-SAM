@@ -6,7 +6,7 @@ import pandas as pd
 import torch
 from numpy import ma
 from scipy.signal import butter, lfilter
-from torch.utils.data import DataLoader, Dataset, Subset
+from torch.utils.data import DataLoader, Dataset, Subset, Sampler
 
 
 def butter_lowpass(cutoff, fs, order=5):
@@ -62,11 +62,46 @@ class intensity_classifier:
                 output_array[i] = self.label[7]
         return output_array
 
+class OversampleCustomSampler(Sampler):
+    def __init__(self, data_source,subset_index, oversample_factor=1, mag_threshold=5):
+        self.dataset = data_source
+        self.subset_idx=subset_index
+        self.mag_threshold = mag_threshold
+        self.oversample_factor = oversample_factor
+        self.oversample_target = data_source.event_metadata.query(
+            f"magnitude>={self.mag_threshold}"
+        )
+        self.indices=self._get_oversampled_indices()
+    def _get_oversampled_indices(self):
+        # indices = [i for i, target in enumerate(self.dataset.events_index)]
+        indices = [idx for idx in self.subset_idx]
+        oversampled_indices = []
+        # for i,target in enumerate(self.dataset.events_index):
+        for idx in self.subset_idx:
+            eq_id=self.dataset.events_index[idx][0][0][0]
+            if eq_id in self.oversample_target["EQ_ID"].values:
+                # print(target[0][0][0])
+                mag=self.dataset.event_metadata.query(f"EQ_ID=={eq_id}")["magnitude"].values[0]
+                repeat_time=int(self.oversample_factor ** (mag - 1) - 1)
+                # print(mag,repeat_time)
+                oversampled_indices.extend(repeat(idx, repeat_time))
+        indices+=oversampled_indices
+
+        return indices
+    def __iter__(self):
+
+        torch.randperm(len(self.indices))
+        for idx in torch.randperm(len(self.indices)):
+            yield self.indices[idx]
+
+    def __len__(self):
+        return len(self.indices)
 
 class multiple_station_dataset(Dataset):
     def __init__(
         self,
         data_path,
+        specific_event_metadata=None,
         sampling_rate=200,
         data_length_sec=30,
         test_year=2018,
@@ -84,11 +119,23 @@ class multiple_station_dataset(Dataset):
         sort_by_picks=True,
         oversample_by_labels=False,
         mag_threshold=0,
+        part_small_event=False,
         weight_label=False,
+        station_blind=False
     ):
-        event_metadata = pd.read_hdf(data_path, "metadata/event_metadata")
+        if specific_event_metadata is not None:
+            init_event_metadata=specific_event_metadata
+        else:
+            init_event_metadata = pd.read_hdf(data_path, "metadata/event_metadata")
         trace_metadata = pd.read_hdf(data_path, "metadata/traces_metadata")
-        event_metadata = event_metadata[event_metadata["magnitude"] >= mag_threshold]
+
+        event_metadata = init_event_metadata[init_event_metadata["magnitude"] >= mag_threshold]
+        if part_small_event:
+            small_event = init_event_metadata.query(
+                f"magnitude < {mag_threshold} & year!={test_year}"
+            ).sample(frac=0.25, random_state=0)
+            event_metadata=pd.concat([event_metadata,small_event])
+
         if mode == "train":
             event_test_mask = [
                 int(year) != test_year for year in event_metadata["year"]
@@ -245,7 +292,7 @@ class multiple_station_dataset(Dataset):
                 if weight_label:
                     single_event_label_weight = single_event_label_weight[sort]
             if len(single_event_index) > max_station_num:
-                time = int(np.ceil(len(single_event_index) / 25))  # 無條件進位
+                time = int(np.ceil(len(single_event_index) / max_station_num))  # 無條件進位
                 # np.array_split(single_event_index, 25)
                 splited_index = np.array_split(
                     single_event_index,
@@ -290,6 +337,7 @@ class multiple_station_dataset(Dataset):
         self.label_target = label_target
         self.mask_waveform_sec = mask_waveform_sec
         self.mask_waveform_random = mask_waveform_random
+        self.station_blind=station_blind
 
     def __len__(self):
         return len(self.events_index)
@@ -312,6 +360,10 @@ class multiple_station_dataset(Dataset):
                 station_location = f["data"][str(eventID[0])]["station_location"][
                     eventID[1]
                 ]
+                Vs30=f["data"][str(eventID[0])]["Vs30"][
+                    eventID[1]
+                ]
+                station_location=np.append(station_location,Vs30)
                 waveform = np.pad(
                     waveform,
                     (
@@ -329,6 +381,10 @@ class multiple_station_dataset(Dataset):
                 station_location = f["data"][str(eventID[0])]["station_location"][
                     eventID[1]
                 ]
+                Vs30=f["data"][str(eventID[0])]["Vs30"][
+                    eventID[1]
+                ]
+                station_location=np.append(station_location,Vs30)
                 label = np.array(
                     f["data"][str(eventID[0])][f"{self.label}"][eventID[1]]
                 ).reshape(1, 1)
@@ -387,6 +443,18 @@ class multiple_station_dataset(Dataset):
             labels = np.array(labels)
             P_picks = np.array(P_picks)
             labels_time = np.array(labels_time)
+            if self.station_blind:
+                nonzero_indices = np.nonzero(Stations_location.any(axis=1))[0]
+
+                # 随机选择填充的索引数量，范围从0到非零行数-1
+                num_indices_to_fill = np.random.randint(0, len(nonzero_indices))
+
+                # 从非零索引中随机选择一部分索引
+                random_indices = np.random.choice(nonzero_indices, size=num_indices_to_fill, replace=False)
+
+                # 将随机选取的索引对应的行用0填充
+                Stations_location[random_indices] = 0
+                Specific_waveforms[random_indices]=0
         if self.mode == "train":
             outputs = {
                 "waveform": Specific_waveforms,
@@ -407,11 +475,6 @@ class multiple_station_dataset(Dataset):
                 "p_picks": P_picks,
                 f"{self.label}_time": labels_time,
             }
-            # others_info = {
-            #     "EQ_ID": specific_index[0],
-            #     "p_picks": P_picks,
-            #     "pga_time": labels_time,
-            # }
             return outputs
 
 
