@@ -27,7 +27,7 @@ traces_info = pd.read_csv(
     f"{Afile_path}/2009_2019_picked_traces_p_arrival_abstime_labeled_nostaoverlap.csv"
 )
 prediction = pd.read_csv(f"{path}/{mask_after_sec} sec ensemble (origin & big event model).csv")
-station_info = pd.read_csv("data/station information/TSMIPstations_new.csv")
+station_info = pd.read_csv("data/station_information/TSMIPstations_new.csv")
 
 data_path = "D:/TEAM_TSMIP/data/TSMIP_1999_2019.hdf5"
 dataset = h5py.File(data_path, "r")
@@ -135,7 +135,7 @@ fig, ax = warning_time_hist(
     bins=14,
 )
 # fig.savefig(
-#     f"{path}/{mask_after_sec} sec warning stations hist.pdf",
+#     f"{path}/{mask_after_sec} sec warning stations hist.png",
 #     dpi=300,
 #     bbox_inches="tight",
 # )
