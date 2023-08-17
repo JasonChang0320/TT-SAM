@@ -559,7 +559,7 @@ def warning_time_hist(
     ax.set_xlabel("Lead time (sec)", fontsize=15)
     ax.set_ylabel("Number of stations", fontsize=15)
     ax.text(
-        0.1,
+        0.025,
         0.7,
         f"mean: {mean} s\nstd: {std} s\nmedian: {median} s\nmax: {max} s\nwarning stations: {count}\nprecision: {precision}\nrecall: {recall}",
         transform=ax.transAxes,
