@@ -9,10 +9,13 @@ import os
 import matplotlib.pyplot as plt
 
 # plot input station map
-mask_after_sec = 5
-
-record_prediction = pd.read_csv(f"./predict/acc predict pga 1999_2019/model 2 meinong intensity map/{mask_after_sec}_sec_meinong_eq_record_prediction.csv")
-event = pd.read_csv("./predict/meinong_eq_info.csv")
+mask_after_sec = 7
+eq_id=27558
+path="./predict/station_blind_Vs30_2018/first try/mag bigger 5.5 predict from model 8"
+record_prediction = pd.read_csv(
+    f"{path}/{mask_after_sec}_sec_eqid{eq_id}_record_prediction.csv"
+)
+event = pd.read_csv(f"{path}/eq{eq_id}_eq_info.csv")
 first_trigger_time = min(record_prediction["p_picks"])
 input_station = record_prediction[
     record_prediction["p_picks"] < first_trigger_time + (mask_after_sec * 200)
@@ -106,10 +109,10 @@ def plot_station_map(
             center[1] - pad,
             center[1] + pad,
         ]
-    xmin = 119.7
-    xmax = 121.3
-    ymin = 22.4
-    ymax = 24.5
+    xmin = 121
+    xmax = 122
+    ymin = 23.5
+    ymax = 25.5
     xticks = ticker.LongitudeLocator(nbins=5)._raw_ticks(xmin, xmax)
     yticks = ticker.LatitudeLocator(nbins=5)._raw_ticks(ymin, ymax)
 
@@ -129,9 +132,7 @@ def plot_station_map(
     if title:
         ax_map.set_title(title)
     else:
-        ax_map.set_title(
-            f"EQ ID: {EQ_ID}, {sec} sec Input Stations"
-        )
+        ax_map.set_title(f"EQ ID: {EQ_ID}, {sec} sec Input Stations")
     plt.legend()
     plt.tight_layout()
     if output_dir:
@@ -140,6 +141,7 @@ def plot_station_map(
     else:
         plt.show()
     return fig, ax_map
+
 
 if len(input_station) >= 25:
     input_station = input_station[:25]
@@ -167,7 +169,7 @@ fig, ax = plot_station_map(
 #         # if i==17: #CHY118
 #         #     adjust_x=-0.3
 #         #     adjust_y=-0.3
-#         # if i==18: #KAU025	
+#         # if i==18: #KAU025
 #         #     adjust_x=0.25
 #         #     adjust_y=-0.01
 #         # if i==19: #CHY089
@@ -180,7 +182,7 @@ fig, ax = plot_station_map(
 #         #     adjust_x=-0.4
 #         #     adjust_y=-0.1
 #         ann=ax.annotate(
-#             f"{station_name}", 
+#             f"{station_name}",
 #             xy=(lon, lat),
 #             xytext=(lon-0.2-adjust_x,lat-0.2-adjust_y),
 #             fontsize=10,
@@ -188,4 +190,6 @@ fig, ax = plot_station_map(
 #             bbox=dict(facecolor='white', edgecolor='gray', boxstyle='round')
 #         )
 
-fig.savefig(f"./predict/acc predict pga 1999_2019/model 2 meinong intensity map/{mask_after_sec}_sec_station_input.png")
+fig.savefig(
+    f"{path}/eqid{eq_id}_{mask_after_sec}_sec_station_input.png"
+)
