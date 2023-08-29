@@ -14,16 +14,17 @@ from CNN_Transformer_Mixtureoutput_TEAM import (
     MDN,
     MLP,
     PositionEmbedding,
+    PositionEmbedding_Vs30,
     TransformerEncoder,
     full_model,
 )
 from multiple_sta_dataset import multiple_station_dataset
 from plot_predict_map import true_predicted
 
-mask_after_sec = 5
+mask_after_sec = 7
 label = "pga"
 data = multiple_station_dataset(
-    "D:/TEAM_TSMIP/data/TSMIP_2009_2019.hdf5",
+    "D:/TEAM_TSMIP/data/TSMIP_1999_2019_Vs30.hdf5",
     mode="test",
     mask_waveform_sec=mask_after_sec,
     test_year=2016,
@@ -34,7 +35,7 @@ data = multiple_station_dataset(
 )
 # =========================
 device = torch.device("cuda")
-for num in range(1,9):
+for num in range(1,13):
     path = f"./model/model{num}.pt"
     emb_dim = 150
     mlp_dims = (150, 100, 50, 30, 10)
@@ -146,67 +147,57 @@ for num in range(1,9):
         "magnitude"
     ].values[0]
     ax.set_title(
-        f"{mask_after_sec}s True Predict Plot, EQ ID:{eq_id}, magnitude: {magnitude}",
+        f"{mask_after_sec}s True Predict Plot, 2016 data",
         fontsize=20,
     )
 
-    fig.savefig(f"./predict/model{num} {mask_after_sec} sec.png")
+    fig.savefig(f"./predict/model {num} {mask_after_sec} sec.png")
 
-# input_waveform_picks=np.array(data[31][4])[np.array(data[31][4])<np.array(data[31][4])[0]+mask_after_sec*200]
-# wav_fig,ax=plt.subplots(len(input_waveform_picks),1,figsize=(14,7))
-# for i in range(0,len(input_waveform_picks)):
-#     for k in range(0,3):
-#         ax[i].plot(data[31][0][i,:,k].flatten())
-#         ax[i].set_yticklabels("")
-#     ax[i].axvline(x=input_waveform_picks[i],c="r")
-# ax[0].set_title(f"{int(sample[-1])}input")
+#ensemble
+mask_after_sec=7
 
-# fig=true_predicted(y_true=output_df["answer"][output_df["EQ_ID"]==27558],y_pred=output_df["predict"][output_df["EQ_ID"]==27558],
-#                 time=mask_after_sec,quantile=False,agg="point", point_size=12)
-mask_after_sec=5
+# predict8=pd.read_csv(
+#     f"./predict/acc predict pga 1999_2019 oversample mag bigger than 5/model 8 {mask_after_sec} sec prediction.csv"
+# )
+# big_event_output = pd.read_csv(
+#     f"./predict/acc predict pga mag bigger than 5/model 1 {mask_after_sec} sec prediction.csv"
+# )
+# big_event_output=big_event_output.drop([1113])
+# big_event_output.reset_index(drop=True,inplace=True)
 
-predict2=pd.read_csv(
-    f"./predict/model 2 {mask_after_sec} sec prediction.csv"
-)
-predict3=pd.read_csv(
-    f"./predict/model 3 {mask_after_sec} sec prediction.csv"
-)
-predict7=pd.read_csv(
-    f"./predict/model 7 {mask_after_sec} sec prediction.csv"
-)
-predict8=pd.read_csv(
-    f"./predict/model 8 {mask_after_sec} sec prediction.csv"
-)
-big_event_output = pd.read_csv(
-    f"./predict/acc predict pga mag bigger than 5/model 1 {mask_after_sec} sec prediction.csv"
-)
-big_event_output=big_event_output.drop([1113])
-big_event_output.reset_index(drop=True,inplace=True)
+# transfer_df = pd.read_csv(
+#     f"./predict/model 2 {mask_after_sec} sec prediction.csv"
+# )
 
-output_df1 = pd.read_csv(
-    f"./predict/acc predict pga mag bigger than 5 double check/model 8 {mask_after_sec} sec prediction.csv"
-)
+# origin_output=pd.read_csv(
+#     f"./predict/acc predict pga 1999_2019/model 2 {mask_after_sec} sec prediction.csv"
+# )
+predict5=pd.read_csv(f"./predict/station_blind_noVs30_bias2closed_station_2016/model 5 {mask_after_sec} sec prediction.csv")
+# predict9=pd.read_csv(f"./predict/model 9 {mask_after_sec} sec prediction.csv")
+predict10=pd.read_csv(f"./predict/station_blind_noVs30_bias2closed_station_2016/model 10 {mask_after_sec} sec prediction.csv")
+# predict10=pd.read_csv(f"./predict/acc predict pga 1999_2019 test 2018/model 10 {mask_after_sec} sec prediction.csv")
+# predict11=pd.read_csv(f"./predict/acc predict pga 1999_2019 test 2018/model 11 {mask_after_sec} sec prediction.csv")
+# predict12=pd.read_csv(f"./predict/acc predict pga 1999_2019 test 2018/model 12 {mask_after_sec} sec prediction.csv")
 
-origin_output=pd.read_csv(
-    f"./predict/acc predict pga 1999_2019/model 2 {mask_after_sec} sec prediction.csv"
-)
-
-ensemble_predict=(big_event_output+2*origin_output)/3
+ensemble_predict=(predict5+predict10)/2
+# ensemble_predict=(big_event_output+2*origin_output+predict8)/4
 fig, ax = true_predicted(
     y_true=ensemble_predict["answer"],
     y_pred=ensemble_predict["predict"],
     time=mask_after_sec,
     quantile=False,
     agg="point",
-    point_size=12,
+    point_size=20,
     target=label,
+    title=f"{mask_after_sec}s Ensemble Prediction, 2016 data"
 )
+fig.savefig(f"./predict/station_blind_noVs30_bias2closed_station_2016/{mask_after_sec} sec ensemble 510.png",dpi=300)
 ax.scatter(
     ensemble_predict["answer"][ensemble_predict["EQ_ID"] == eq_id],
     ensemble_predict["predict"][ensemble_predict["EQ_ID"] == eq_id],
     c="r",
 )
-ensemble_predict.to_csv(f"./predict/{mask_after_sec} sec ensemble (origin & big event model).csv",index=False)
+ensemble_predict.to_csv(f"./predict/station_blind_noVs30_bias2closed_station_2016/{mask_after_sec} sec ensemble 510.csv",index=False)
 
 # plot residual
 mask_after_sec = 10
@@ -266,7 +257,7 @@ for eq_id in data.event_metadata["EQ_ID"]:
     fig.savefig(f"{folder_path}/{mask_after_sec}sec_EQID.png")
 
 #check prediction in magnitude
-mask_after_sec=7
+mask_after_sec=5
 output_df = pd.read_csv(
     f"./predict/acc predict pga mag bigger than 5/model 1 {mask_after_sec} sec prediction.csv"
 )

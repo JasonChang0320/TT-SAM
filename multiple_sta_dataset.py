@@ -121,7 +121,8 @@ class multiple_station_dataset(Dataset):
         mag_threshold=0,
         part_small_event=False,
         weight_label=False,
-        station_blind=False
+        station_blind=False,
+        bias_to_closer_station=False
     ):
         if specific_event_metadata is not None:
             init_event_metadata=specific_event_metadata
@@ -307,6 +308,8 @@ class multiple_station_dataset(Dataset):
                     )
                 for i in range(time):
                     Events_index.append([splited_index[0], splited_index[i]])
+                    if bias_to_closer_station:
+                        Events_index.append([splited_index[0], splited_index[0]])
                     if weight_label:
                         Weight.append(np.mean(splited_weight[i]))
 
@@ -338,6 +341,7 @@ class multiple_station_dataset(Dataset):
         self.mask_waveform_sec = mask_waveform_sec
         self.mask_waveform_random = mask_waveform_random
         self.station_blind=station_blind
+        self.bias_to_closer_station=bias_to_closer_station
 
     def __len__(self):
         return len(self.events_index)
@@ -360,10 +364,10 @@ class multiple_station_dataset(Dataset):
                 station_location = f["data"][str(eventID[0])]["station_location"][
                     eventID[1]
                 ]
-                Vs30=f["data"][str(eventID[0])]["Vs30"][
-                    eventID[1]
-                ]
-                station_location=np.append(station_location,Vs30)
+                # Vs30=f["data"][str(eventID[0])]["Vs30"][
+                #     eventID[1]
+                # ]
+                # station_location=np.append(station_location,Vs30)
                 waveform = np.pad(
                     waveform,
                     (
@@ -381,10 +385,10 @@ class multiple_station_dataset(Dataset):
                 station_location = f["data"][str(eventID[0])]["station_location"][
                     eventID[1]
                 ]
-                Vs30=f["data"][str(eventID[0])]["Vs30"][
-                    eventID[1]
-                ]
-                station_location=np.append(station_location,Vs30)
+                # Vs30=f["data"][str(eventID[0])]["Vs30"][
+                #     eventID[1]
+                # ]
+                # station_location=np.append(station_location,Vs30)
                 label = np.array(
                     f["data"][str(eventID[0])][f"{self.label}"][eventID[1]]
                 ).reshape(1, 1)

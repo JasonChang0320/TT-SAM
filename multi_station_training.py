@@ -234,7 +234,7 @@ def train_process(
 
 if __name__ == "__main__":
     train_data_size = 0.8
-    model_index = 3
+    model_index = 0
     num_epochs = 300
     # batch_size=16
     for batch_size in [32, 16]:
@@ -253,7 +253,7 @@ if __name__ == "__main__":
                 mlp_dims = (150, 100, 50, 30, 10)
 
                 CNN_model = CNN(mlp_input=5665).cuda()
-                pos_emb_model = PositionEmbedding_Vs30(emb_dim=emb_dim).cuda()
+                pos_emb_model = PositionEmbedding(emb_dim=emb_dim).cuda()
                 transformer_model = TransformerEncoder()
                 mlp_model = MLP(input_shape=(emb_dim,), dims=mlp_dims).cuda()
                 mdn_model = MDN(input_shape=(mlp_dims[-1],)).cuda()
@@ -285,19 +285,20 @@ if __name__ == "__main__":
                     weight_label=False,
                     oversample=1.5,
                     oversample_mag=4,
-                    test_year=2018,
+                    test_year=2016,
                     mask_waveform_random=True,
                     mag_threshold=0,
                     label_key="pga",
                     input_type="acc",
                     data_length_sec=15,
-                    station_blind=True
+                    station_blind=True,
+                    bias_to_closer_station=True
                 )
                 training_loss, validation_loss = train_process(
                     full_Model,
                     full_data,
                     optimizer,
                     hyper_param,
-                    experiment_name="Vs30",
-                    run_name="test 2018, oversample, station_blind"
+                    experiment_name="bias to close station",
+                    run_name="test 2016, oversample,no vs30, station_blind"
                 )
