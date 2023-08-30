@@ -35,7 +35,7 @@ Calculate precision, recall, F1 score and calculate warthquake warning time
 
 ## Model performance
 
-![image](prediction_images_in_readme/24784_mag_6.6_5sec PGA intensity Map.png)
-![image](prediction_images_in_readme/25396_mag_6.1_5sec PGA intensity Map.png)
+![image](prediction_images_in_readme/24784_mag_6.6_5sec_PGA_intensity_Map.png)
+![image](prediction_images_in_readme/25396_mag_6.1_5sec_PGA_intensity_Map.png)
 
 
