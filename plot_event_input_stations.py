@@ -9,13 +9,12 @@ import os
 import matplotlib.pyplot as plt
 
 # plot input station map
-mask_after_sec = 7
-eq_id=27558
-path="./predict/station_blind_Vs30_2018/first try/mag bigger 5.5 predict from model 8"
-record_prediction = pd.read_csv(
-    f"{path}/{mask_after_sec}_sec_eqid{eq_id}_record_prediction.csv"
+mask_after_sec = 3
+eq_id = 24784
+prediction_with_info = pd.read_csv(
+    f"predict/station_blind_noVs30_bias2closed_station_2016/{mask_after_sec} sec ensemble 510 with all info.csv"
 )
-event = pd.read_csv(f"{path}/eq{eq_id}_eq_info.csv")
+record_prediction = prediction_with_info.query(f"EQ_ID=={eq_id}")
 first_trigger_time = min(record_prediction["p_picks"])
 input_station = record_prediction[
     record_prediction["p_picks"] < first_trigger_time + (mask_after_sec * 200)
@@ -24,7 +23,6 @@ input_station = record_prediction[
 
 def plot_station_map(
     trace_info=None,
-    eventmeta=None,
     center=None,
     pad=None,
     sec=None,
@@ -53,8 +51,8 @@ def plot_station_map(
         zorder=3,
         label="Station",
     )
-    event_lon = eventmeta["longitude"]
-    event_lat = eventmeta["latitude"]
+    event_lon = trace_info["event_lon"].values[0]
+    event_lat = trace_info["event_lat"].values[0]
     ax_map.scatter(
         event_lon,
         event_lat,
@@ -86,9 +84,9 @@ def plot_station_map(
         zorder=2.5,
     )
     ax_map.text(
-        event_lon + 0.15,
+        event_lon + 0.1,
         event_lat,
-        f"M{eventmeta['magnitude'].values[0]}",
+        f"M{trace_info['magnitude'].values[0]}",
         va="center",
         zorder=11,
     )
@@ -109,10 +107,10 @@ def plot_station_map(
             center[1] - pad,
             center[1] + pad,
         ]
-    xmin = 121
-    xmax = 122
-    ymin = 23.5
-    ymax = 25.5
+    xmin = trace_info["longitude"].min() - 0.6
+    xmax = trace_info["longitude"].max() + 0.6
+    ymin = trace_info["latitude"].min() - 0.6
+    ymax = trace_info["latitude"].max() + 0.6
     xticks = ticker.LongitudeLocator(nbins=5)._raw_ticks(xmin, xmax)
     yticks = ticker.LatitudeLocator(nbins=5)._raw_ticks(ymin, ymax)
 
@@ -148,9 +146,8 @@ if len(input_station) >= 25:
 
 fig, ax = plot_station_map(
     trace_info=input_station,
-    eventmeta=event,
     sec=mask_after_sec,
-    EQ_ID=24784,
+    EQ_ID=eq_id,
     pad=100,
 )
 
@@ -190,6 +187,6 @@ fig, ax = plot_station_map(
 #             bbox=dict(facecolor='white', edgecolor='gray', boxstyle='round')
 #         )
 
-fig.savefig(
-    f"{path}/eqid{eq_id}_{mask_after_sec}_sec_station_input.png"
-)
+# fig.savefig(
+#     f"{path}/eqid{eq_id}_{mask_after_sec}_sec_station_input.png"
+# )

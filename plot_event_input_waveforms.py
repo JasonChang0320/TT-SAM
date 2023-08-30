@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+
 plt.subplots()
 import numpy as np
 import pandas as pd
@@ -7,23 +8,24 @@ from tqdm import tqdm
 
 from multiple_sta_dataset import multiple_station_dataset
 
-mask_after_sec = 7
+mask_after_sec = 3
 label = "pga"
-eq_id=27558
+eq_id = 24784
 data = multiple_station_dataset(
     "D:/TEAM_TSMIP/data/TSMIP_1999_2019_Vs30.hdf5",
     mode="test",
     mask_waveform_sec=mask_after_sec,
-    test_year=2018,
+    test_year=2016,
     label_key=label,
     input_type="acc",
     data_length_sec=15,
 )
-path="./predict/station_blind_Vs30_2018/first try/mag bigger 5.5 predict from model 8"
 record_prediction = pd.read_csv(
-    f"{path}/{mask_after_sec}_sec_eqid{eq_id}_record_prediction.csv"
+    f"predict/station_blind_noVs30_bias2closed_station_2016/{mask_after_sec} sec ensemble 510 with all info.csv"
 )
-record_prediction=record_prediction[record_prediction["EQ_ID"]==eq_id].reset_index(drop=True)
+record_prediction = record_prediction[record_prediction["EQ_ID"] == eq_id].reset_index(
+    drop=True
+)
 # =========================
 loader = DataLoader(dataset=data, batch_size=1)
 
@@ -87,13 +89,15 @@ for j, sample in tqdm(enumerate(loader)):
                 ha="left",
                 va="center",
             )
-        # if mask_after_sec==5: 
-            waveform_fig,waveform_ax=plt.subplots(3,1,figsize=(7,7))
+            # if mask_after_sec==5:
+            waveform_fig, waveform_ax = plt.subplots(3, 1, figsize=(7, 7))
             for j in range(3):
-                waveform_ax[j].plot(waveform[i,:,j])
-                waveform_ax[j].axvline(x=picks[i],c="r")
-                waveform_ax[0].set_title(f"acc waveform, PGA: {answer} gal",size=20)
+                waveform_ax[j].plot(waveform[i, :, j])
+                waveform_ax[j].axvline(x=picks[i], c="r")
+                waveform_ax[0].set_title(f"acc waveform, PGA: {answer} gal", size=20)
                 # waveform_fig.savefig(f"./predict/acc predict pga 1999_2019/model 2 meinong intensity map/index{i}_{station_name}_acc_input.png")
-        waveforms_ax[0].set_title(f"EQID:{eq_id} {mask_after_sec} sec acc records, Z component",size=20)
+        waveforms_ax[0].set_title(
+            f"EQID:{eq_id} {mask_after_sec} sec acc records, Z component", size=20
+        )
         # waveforms_fig.savefig(f"{path}/eqid{eq_id}_{mask_after_sec}_sec_Z_acc.png",bbox_inches='tight')
         break

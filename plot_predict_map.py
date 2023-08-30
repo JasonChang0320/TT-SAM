@@ -262,7 +262,9 @@ def warning_map(
     )  # zorder越大的圖層 越上面
 
     sta_num = len(trace_info[true_warn_filter])
-    warning_time = trace_info[true_warn_filter][f"{label_type}_time"] / 200 - (sec + 5)
+    warning_time = trace_info[true_warn_filter][f"{label_type}_time_window"] / 200 - (
+        sec + 5
+    )
 
     cvals = [0, warning_time.mean(), warning_time.max()]
     colors = ["white", "orange", "red"]
@@ -395,7 +397,7 @@ def true_predicted(
     axis_fontsize=20,
     point_size=2,
     target="pga",
-    title=None
+    title=None,
 ):
     if ax is None:
         fig = plt.figure(figsize=(10, 10))
@@ -463,7 +465,7 @@ def true_predicted(
 
     ax.set_xlabel(r"True PGA log(${m/s^2}$)", fontsize=axis_fontsize)
     ax.set_ylabel(r"Predicted PGA log(${m/s^2}$)", fontsize=axis_fontsize)
-    if title==None:
+    if title == None:
         ax.set_title(f"Model prediction", fontsize=axis_fontsize + 5)
     else:
         ax.set_title(title, fontsize=axis_fontsize + 5)
@@ -497,9 +499,8 @@ def warning_time_hist(
     sampling_rate=200,
     first_pick_sec=5,
 ):
-    prediction = pd.merge(prediction, catalog, how="left", on="EQ_ID")
     warning_time_filter = (
-        prediction[f"{label_type}_time"]
+        prediction[f"{label_type}_time_window"]
         > (first_pick_sec + mask_after_sec) * sampling_rate
     )
     magnitude_filter = prediction["magnitude"] >= warning_mag_threshold
@@ -507,7 +508,7 @@ def warning_time_hist(
     prediction_for_warning = prediction[warning_time_filter & magnitude_filter]
 
     warning_time = (
-        prediction_for_warning[f"{label_type}_time"]
+        prediction_for_warning[f"{label_type}_time_window"]
         - ((first_pick_sec + mask_after_sec) * sampling_rate)
     ) / sampling_rate
     prediction_for_warning.insert(5, "warning_time (sec)", warning_time)
@@ -536,16 +537,7 @@ def warning_time_hist(
     std = np.round(describe["std"], 2)
     median = np.round(describe["50%"], 2)
     max = np.round(describe["max"], 2)
-    precision = np.round(
-        len(prediction_for_warning[true_predict_filter])
-        / len(prediction_for_warning[positive_filter]),
-        2,
-    )
-    recall = np.round(
-        len(prediction_for_warning[true_predict_filter])
-        / len(prediction_for_warning[true_filter]),
-        2,
-    )
+
     if EQ_ID:
         ax.set_title(
             f"Warning time in EQ ID: {EQ_ID}, \n after first triggered station {mask_after_sec} sec",
@@ -559,9 +551,9 @@ def warning_time_hist(
     ax.set_xlabel("Lead time (sec)", fontsize=15)
     ax.set_ylabel("Number of stations", fontsize=15)
     ax.text(
-        0.025,
-        0.7,
-        f"mean: {mean} s\nstd: {std} s\nmedian: {median} s\nmax: {max} s\nwarning stations: {count}\nprecision: {precision}\nrecall: {recall}",
+        0.6,
+        0.775,
+        f"mean: {mean} s\nstd: {std} s\nmedian: {median} s\nmax: {max} s\nwarning stations: {count}",
         transform=ax.transAxes,
         fontsize=14,
     )
@@ -578,13 +570,14 @@ def correct_warning_with_epidist(
     sampling_rate=200,
     first_pick_sec=5,
 ):
-    EQ_ID = int(event_prediction["EQ_ID"][0])
+    EQ_ID = int(event_prediction["EQ_ID"].values[0])
     fig, ax = plt.subplots()
     true_warning_prediction = event_prediction.query(
         f"predict > {label_threshold} and answer > {label_threshold}"
     )
     pga_time = (
-        true_warning_prediction[f"{label_type}_time"] / sampling_rate - first_pick_sec
+        true_warning_prediction[f"{label_type}_time_window"] / sampling_rate
+        - first_pick_sec
     )
     pick_time = true_warning_prediction["p_picks"] / sampling_rate - first_pick_sec
     ax.scatter(
