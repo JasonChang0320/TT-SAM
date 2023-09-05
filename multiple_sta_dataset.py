@@ -62,40 +62,45 @@ class intensity_classifier:
                 output_array[i] = self.label[7]
         return output_array
 
+
 class OversampleCustomSampler(Sampler):
-    def __init__(self, data_source,subset_index, oversample_factor=1, mag_threshold=5):
+    def __init__(self, data_source, subset_index, oversample_factor=1, mag_threshold=5):
         self.dataset = data_source
-        self.subset_idx=subset_index
+        self.subset_idx = subset_index
         self.mag_threshold = mag_threshold
         self.oversample_factor = oversample_factor
         self.oversample_target = data_source.event_metadata.query(
             f"magnitude>={self.mag_threshold}"
         )
-        self.indices=self._get_oversampled_indices()
+        self.indices = self._get_oversampled_indices()
+
     def _get_oversampled_indices(self):
         # indices = [i for i, target in enumerate(self.dataset.events_index)]
         indices = [idx for idx in self.subset_idx]
         oversampled_indices = []
         # for i,target in enumerate(self.dataset.events_index):
         for idx in self.subset_idx:
-            eq_id=self.dataset.events_index[idx][0][0][0]
+            eq_id = self.dataset.events_index[idx][0][0][0]
             if eq_id in self.oversample_target["EQ_ID"].values:
                 # print(target[0][0][0])
-                mag=self.dataset.event_metadata.query(f"EQ_ID=={eq_id}")["magnitude"].values[0]
-                repeat_time=int(self.oversample_factor ** (mag - 1) - 1)
+                mag = self.dataset.event_metadata.query(f"EQ_ID=={eq_id}")[
+                    "magnitude"
+                ].values[0]
+                repeat_time = int(self.oversample_factor ** (mag - 1) - 1)
                 # print(mag,repeat_time)
                 oversampled_indices.extend(repeat(idx, repeat_time))
-        indices+=oversampled_indices
+        indices += oversampled_indices
 
         return indices
-    def __iter__(self):
 
+    def __iter__(self):
         torch.randperm(len(self.indices))
         for idx in torch.randperm(len(self.indices)):
             yield self.indices[idx]
 
     def __len__(self):
         return len(self.indices)
+
 
 class multiple_station_dataset(Dataset):
     def __init__(
@@ -122,20 +127,22 @@ class multiple_station_dataset(Dataset):
         part_small_event=False,
         weight_label=False,
         station_blind=False,
-        bias_to_closer_station=False
+        bias_to_closer_station=False,
     ):
         if specific_event_metadata is not None:
-            init_event_metadata=specific_event_metadata
+            init_event_metadata = specific_event_metadata
         else:
             init_event_metadata = pd.read_hdf(data_path, "metadata/event_metadata")
         trace_metadata = pd.read_hdf(data_path, "metadata/traces_metadata")
 
-        event_metadata = init_event_metadata[init_event_metadata["magnitude"] >= mag_threshold]
+        event_metadata = init_event_metadata[
+            init_event_metadata["magnitude"] >= mag_threshold
+        ]
         if part_small_event:
             small_event = init_event_metadata.query(
                 f"magnitude < {mag_threshold} & year!={test_year}"
             ).sample(frac=0.25, random_state=0)
-            event_metadata=pd.concat([event_metadata,small_event])
+            event_metadata = pd.concat([event_metadata, small_event])
 
         if mode == "train":
             event_test_mask = [
@@ -340,8 +347,8 @@ class multiple_station_dataset(Dataset):
         self.label_target = label_target
         self.mask_waveform_sec = mask_waveform_sec
         self.mask_waveform_random = mask_waveform_random
-        self.station_blind=station_blind
-        self.bias_to_closer_station=bias_to_closer_station
+        self.station_blind = station_blind
+        self.bias_to_closer_station = bias_to_closer_station
 
     def __len__(self):
         return len(self.events_index)
@@ -364,10 +371,8 @@ class multiple_station_dataset(Dataset):
                 station_location = f["data"][str(eventID[0])]["station_location"][
                     eventID[1]
                 ]
-                # Vs30=f["data"][str(eventID[0])]["Vs30"][
-                #     eventID[1]
-                # ]
-                # station_location=np.append(station_location,Vs30)
+                Vs30 = f["data"][str(eventID[0])]["Vs30"][eventID[1]]
+                station_location = np.append(station_location, Vs30)
                 waveform = np.pad(
                     waveform,
                     (
@@ -385,10 +390,8 @@ class multiple_station_dataset(Dataset):
                 station_location = f["data"][str(eventID[0])]["station_location"][
                     eventID[1]
                 ]
-                # Vs30=f["data"][str(eventID[0])]["Vs30"][
-                #     eventID[1]
-                # ]
-                # station_location=np.append(station_location,Vs30)
+                Vs30 = f["data"][str(eventID[0])]["Vs30"][eventID[1]]
+                station_location = np.append(station_location, Vs30)
                 label = np.array(
                     f["data"][str(eventID[0])][f"{self.label}"][eventID[1]]
                 ).reshape(1, 1)
@@ -429,7 +432,7 @@ class multiple_station_dataset(Dataset):
                         random_mask_sec * self.sampling_rate
                     ):
                         Specific_waveforms[i, :, :] = 0
-                        stations_location[i]=np.zeros_like(station_location)
+                        stations_location[i] = np.zeros_like(station_location)
             elif self.mask_waveform_sec:
                 Specific_waveforms[
                     :,
@@ -441,7 +444,7 @@ class multiple_station_dataset(Dataset):
                         self.mask_waveform_sec * self.sampling_rate
                     ):
                         Specific_waveforms[i, :, :] = 0
-                        stations_location[i]=np.zeros_like(station_location)
+                        stations_location[i] = np.zeros_like(station_location)
             Stations_location = np.array(stations_location)
             label_targets_location = np.array(label_targets_location)
             labels = np.array(labels)
@@ -454,11 +457,13 @@ class multiple_station_dataset(Dataset):
                 num_indices_to_fill = np.random.randint(0, len(nonzero_indices))
 
                 # 从非零索引中随机选择一部分索引
-                random_indices = np.random.choice(nonzero_indices, size=num_indices_to_fill, replace=False)
+                random_indices = np.random.choice(
+                    nonzero_indices, size=num_indices_to_fill, replace=False
+                )
 
                 # 将随机选取的索引对应的行用0填充
                 Stations_location[random_indices] = 0
-                Specific_waveforms[random_indices]=0
+                Specific_waveforms[random_indices] = 0
         if self.mode == "train":
             outputs = {
                 "waveform": Specific_waveforms,
@@ -673,8 +678,8 @@ class multiple_station_dataset_outputs(Dataset):
         self.data_length_sec = data_length_sec
         self.metadata = metadata
         self.events_index = Events_index
-        self.ok_events_index=ok_events_index
-        self.p_picks=p_picks
+        self.ok_events_index = ok_events_index
+        self.p_picks = p_picks
         self.max_station_num = max_station_num
         self.label_target = label_target
         self.mask_waveform_sec = mask_waveform_sec
@@ -769,8 +774,8 @@ class multiple_station_dataset_outputs(Dataset):
                             random_mask_sec * self.sampling_rate
                         ):
                             Specific_waveforms[i, :, :] = 0
-                            #還沒收到waveform的測站不能先被看到 !
-                            stations_location[i]=np.zeros_like(station_location)
+                            # 還沒收到waveform的測站不能先被看到 !
+                            stations_location[i] = np.zeros_like(station_location)
                 elif self.mask_waveform_sec:
                     Specific_waveforms[
                         :,
@@ -783,8 +788,8 @@ class multiple_station_dataset_outputs(Dataset):
                             self.mask_waveform_sec * self.sampling_rate
                         ):
                             Specific_waveforms[i, :, :] = 0
-                            #還沒收到waveform的測站不能先被看到 !
-                            stations_location[i]=np.zeros_like(station_location)
+                            # 還沒收到waveform的測站不能先被看到 !
+                            stations_location[i] = np.zeros_like(station_location)
                 outputs_waveform[key] = Specific_waveforms
 
             Stations_location = np.array(stations_location)

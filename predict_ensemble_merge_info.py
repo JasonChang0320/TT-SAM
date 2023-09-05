@@ -41,7 +41,7 @@ for num in range(1, 13):
     emb_dim = 150
     mlp_dims = (150, 100, 50, 30, 10)
     CNN_model = CNN(mlp_input=5665).cuda()
-    pos_emb_model = PositionEmbedding(emb_dim=emb_dim).cuda()
+    pos_emb_model = PositionEmbedding_Vs30(emb_dim=emb_dim).cuda()
     transformer_model = TransformerEncoder()
     mlp_model = MLP(input_shape=(emb_dim,), dims=mlp_dims).cuda()
     mdn_model = MDN(input_shape=(mlp_dims[-1],)).cuda()
@@ -171,10 +171,14 @@ ax.scatter(
 # fig.savefig(f"./predict/station_blind_noVs30_bias2closed_station_2016/{mask_after_sec} sec ensemble 510.png",dpi=300)
 
 # ===========merge info==============
+mask_after_sec = 3
 Afile_path = "data preprocess/events_traces_catalog"
+output_path = "predict/station_blind_Vs30_bias2closed_station_2016"
 catalog = pd.read_csv(f"{Afile_path}/1999_2019_final_catalog.csv")
 traces_info = pd.read_csv(f"{Afile_path}/1999_2019_final_traces_Vs30.csv")
-
+ensemble_predict = pd.read_csv(
+    f"{output_path}/model 11 {mask_after_sec} sec prediction.csv"
+)
 trace_merge_catalog = pd.merge(
     traces_info,
     catalog[
@@ -234,12 +238,12 @@ prediction_with_info = pd.merge(
     suffixes=["_window", "_file"],
 )
 prediction_with_info.to_csv(
-    f"./predict/{mask_after_sec} sec ensemble 510 with all info.csv", index=False
+    f"{output_path}/{mask_after_sec} sec model11 with all info.csv", index=False
 )
 
 # ===========plot mag>=5.5===========
-mag5_5_prediction=prediction_with_info.query("magnitude>=5.5")
-label_type="pga"
+mag5_5_prediction = prediction_with_info.query("magnitude>=5.5")
+label_type = "pga"
 fig, ax = true_predicted(
     y_true=mag5_5_prediction["answer"],
     y_pred=mag5_5_prediction["predict"],
@@ -248,10 +252,10 @@ fig, ax = true_predicted(
     agg="point",
     point_size=70,
     target=label_type,
-    title=f"Magnitude>=5.5 event {mask_after_sec} sec"
+    title=f"Magnitude>=5.5 event {mask_after_sec} sec",
 )
 
-#===========check prediction in magnitude===========
+# ===========check prediction in magnitude===========
 mask_after_sec = 5
 
 label = "pga"
@@ -268,5 +272,6 @@ fig, ax = true_predicted(
 ax.scatter(
     prediction_with_info["answer"][prediction_with_info["magnitude"] < 5],
     prediction_with_info["predict"][prediction_with_info["magnitude"] < 5],
-    c="r",label="magnitude < 5"
+    c="r",
+    label="magnitude < 5",
 )

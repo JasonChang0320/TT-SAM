@@ -16,7 +16,7 @@ from CNN_Transformer_Mixtureoutput_TEAM import (
     PositionEmbedding,
     TransformerEncoder,
     full_model,
-    PositionEmbedding_Vs30
+    PositionEmbedding_Vs30,
 )
 from multiple_sta_dataset import CustomSubset, multiple_station_dataset
 
@@ -29,11 +29,9 @@ def train_process(
     num_of_gaussian=5,
     train_data_size=0.8,
     experiment_name=None,
-    run_name=None
+    run_name=None,
 ):
-    experiment = mlflow.get_experiment_by_name(
-        experiment_name
-    )
+    experiment = mlflow.get_experiment_by_name(experiment_name)
     with mlflow.start_run(
         run_name=run_name,
         experiment_id=experiment.experiment_id,
@@ -114,7 +112,7 @@ def train_process(
             patience = 10
         elif hyper_param["learning_rate"] >= 0:
             patience = 15
-        print("patience",patience)
+        print("patience", patience)
         trigger_times = 0
         for epoch in range(hyper_param["num_epochs"]):
             print(f"Epoch:{epoch+1}")
@@ -181,18 +179,23 @@ def train_process(
             validation_loss.append(val_loss.data)
             log_metrics(
                 {"train_loss": train_loss.item(), "val_loss": val_loss.item()},
-                step=epoch+1,
+                step=epoch + 1,
             )
-            #checkpoint
-            if train_loss.data<-1 and (epoch+1)%5==0:
-                checkpoint_path=f"./model/model{hyper_param['model_index']}_checkpoints"
+            # checkpoint
+            if train_loss.data < -1 and (epoch + 1) % 5 == 0:
+                checkpoint_path = (
+                    f"./model/model{hyper_param['model_index']}_checkpoints"
+                )
                 if not os.path.exists(checkpoint_path):
                     os.makedirs(checkpoint_path)
-                torch.save(full_Model.state_dict(), f"{checkpoint_path}/epoch{epoch+1}_model.pt")
+                torch.save(
+                    full_Model.state_dict(),
+                    f"{checkpoint_path}/epoch{epoch+1}_model.pt",
+                )
             # epoch early stopping:
             current_loss = val_loss.data
-            if the_last_loss<-1:
-                patience=15
+            if the_last_loss < -1:
+                patience = 15
             if current_loss > the_last_loss:
                 trigger_times += 1
                 print("early stop trigger times:", trigger_times)
@@ -211,7 +214,7 @@ def train_process(
                         log_artifact(
                             f"{path}/validation loss{hyper_param['model_index']}"
                         )
-                    log_param("epoch early stop", epoch+1)
+                    log_param("epoch early stop", epoch + 1)
                     return training_loss, validation_loss
 
                 continue
@@ -238,7 +241,7 @@ if __name__ == "__main__":
     num_epochs = 300
     # batch_size=16
     for batch_size in [32, 16]:
-        for LR in [5e-5,2.5e-5]:
+        for LR in [5e-5, 2.5e-5]:
             for i in range(3):
                 model_index += 1
                 hyper_param = {
@@ -253,7 +256,7 @@ if __name__ == "__main__":
                 mlp_dims = (150, 100, 50, 30, 10)
 
                 CNN_model = CNN(mlp_input=5665).cuda()
-                pos_emb_model = PositionEmbedding(emb_dim=emb_dim).cuda()
+                pos_emb_model = PositionEmbedding_Vs30(emb_dim=emb_dim).cuda()
                 transformer_model = TransformerEncoder()
                 mlp_model = MLP(input_shape=(emb_dim,), dims=mlp_dims).cuda()
                 mdn_model = MDN(input_shape=(mlp_dims[-1],)).cuda()
@@ -292,7 +295,7 @@ if __name__ == "__main__":
                     input_type="acc",
                     data_length_sec=15,
                     station_blind=True,
-                    bias_to_closer_station=True
+                    bias_to_closer_station=True,
                 )
                 training_loss, validation_loss = train_process(
                     full_Model,
@@ -300,5 +303,5 @@ if __name__ == "__main__":
                     optimizer,
                     hyper_param,
                     experiment_name="bias to close station",
-                    run_name="test 2016, oversample,no vs30, station_blind"
+                    run_name="test 2016, oversample,vs30, station_blind",
                 )
