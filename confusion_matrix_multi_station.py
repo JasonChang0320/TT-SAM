@@ -3,8 +3,12 @@ import numpy as np
 import pandas as pd
 import seaborn as sn
 from sklearn.metrics import confusion_matrix
+import os
 
-path = "predict/station_blind_noVs30_bias2closed_station_2016"
+path = "predict/station_blind_Vs30_bias2closed_station_2016"
+output_path = f"{path}/model11 confusion matrix"
+if not os.path.isdir(output_path):
+    os.mkdir(output_path)
 label = "pga"
 if label == "pga":
     Label_threshold = np.log10(
@@ -14,11 +18,67 @@ if label == "pga":
 if label == "pgv":
     Label_threshold = np.log10(np.array([0.019, 0.057, 0.15]))  # 3,4,5級
     unit = "m/s"
+
+
+def pga_to_intensity(value):
+    pga_threshold = np.log10([0.008, 0.025, 0.080, 0.250, 0.80, 1.4, 2.5, 4.4, 8.0, 10])
+    intensity = ["0", "1", "2", "3", "4", "5-", "5+", "6-", "6+", "7"]
+    for i, threshold in enumerate(pga_threshold):
+        if value < threshold:
+            return intensity[i]
+    return intensity[-1]
+
+
+intensity_score_dict = {"second": [], "intensity_score": []}
 for mask_after_sec in [3, 5, 7, 10]:
-    data = pd.read_csv(f"{path}/{mask_after_sec} sec ensemble 510 with all info.csv")
+    data = pd.read_csv(f"{path}/{mask_after_sec} sec model11 with all info.csv")
 
     predict_label = data["predict"]
     real_label = data["answer"]
+    # calculate intensity score
+    intensity = ["0", "1", "2", "3", "4", "5-", "5+", "6-", "6+", "7"]
+    data["predicted_intensity"] = predict_label.apply(pga_to_intensity)
+    data["answer_intensity"] = real_label.apply(pga_to_intensity)
+    intensity_score = (
+        (data["predicted_intensity"] == data["answer_intensity"]).sum()
+    ) / len(data)
+    intensity_score_dict["second"].append(mask_after_sec)
+    intensity_score_dict["intensity_score"].append(intensity_score)
+    intensity_table = pd.DataFrame(intensity_score_dict)
+
+    intensity_table.to_csv(
+        f"{output_path}/intensity table.csv",
+        index=False,
+    )
+    # plot intensity score confusion matrix
+
+    intensity_confusion_matrix = confusion_matrix(
+        data["answer_intensity"], data["predicted_intensity"], labels=intensity
+    )
+
+    sn.set(rc={"figure.figsize": (8, 8)}, font_scale=1.2)  # for label size
+    fig, ax = plt.subplots()
+    sn.heatmap(
+        intensity_confusion_matrix,
+        ax=ax,
+        xticklabels=intensity,
+        yticklabels=intensity,
+        fmt="g",
+        annot=True,
+        annot_kws={"size": 16},
+        cmap="Reds",
+        cbar=True,
+        cbar_kws={"label": "number of traces"},
+    )  # font size
+    ax.set_xlabel("Predicted intensity")
+    ax.set_ylabel("Actual intensity")
+    ax.set_title(
+        f"{mask_after_sec} sec intensity confusion matrix, intensity score: {np.round(intensity_score,3)}"
+    )
+    fig.savefig(
+        f"{output_path}/{mask_after_sec} sec intensity confusion matrix, {label} intensity threshold.png",
+        dpi=300,
+    )
 
     performance_score = {
         f"{label}_threshold ({unit})": [],
@@ -61,11 +121,11 @@ for mask_after_sec in [3, 5, 7, 10]:
             f"EEW {mask_after_sec} sec confusion matrix, {label} threshold: {np.round((10**label_threshold),3)} ({unit})"
         )
         # fig.savefig(
-        #     f"{path}/ensemble model confusion matrix/{mask_after_sec} sec {label}_threshold {np.round((10**label_threshold),3)}.png"
+        #     f"{output_path}/{mask_after_sec} sec {label}_threshold {np.round((10**label_threshold),3)}.png"
         # ,dpi=300)
         predict_table = pd.DataFrame(performance_score)
         # predict_table.to_csv(
-        #     f"{path}/ensemble model confusion matrix/{mask_after_sec} sec confusion matrix table.csv",
+        #     f"{output_path}/{mask_after_sec} sec confusion matrix table.csv",
         #     index=False,
         # )
     # label threshold performance
@@ -80,21 +140,13 @@ for mask_after_sec in [3, 5, 7, 10]:
         axes[i].tick_params(axis="both", which="major", labelsize=axis_fontsize - 15)
         axes[i].set_ylim(0, 1)
     axes[1].set_xlabel(f"{label} threshold ({unit})", fontsize=axis_fontsize - 12)
-    # Fig.savefig(f"{path}/ensemble model confusion matrix/{mask_after_sec} sec F1 score.png",dpi=300)
+    # Fig.savefig(f"{output_path}/{mask_after_sec} sec F1 score.png",dpi=300)
 
 # pga threshold by time plot
-sec3_table = pd.read_csv(
-    f"{path}/ensemble model confusion matrix/3 sec confusion matrix table.csv"
-)
-sec5_table = pd.read_csv(
-    f"{path}/ensemble model confusion matrix/5 sec confusion matrix table.csv"
-)
-sec7_table = pd.read_csv(
-    f"{path}/ensemble model confusion matrix/7 sec confusion matrix table.csv"
-)
-sec10_table = pd.read_csv(
-    f"{path}/ensemble model confusion matrix/10 sec confusion matrix table.csv"
-)
+sec3_table = pd.read_csv(f"{output_path}/3 sec confusion matrix table.csv")
+sec5_table = pd.read_csv(f"{output_path}/5 sec confusion matrix table.csv")
+sec7_table = pd.read_csv(f"{output_path}/7 sec confusion matrix table.csv")
+sec10_table = pd.read_csv(f"{output_path}/10 sec confusion matrix table.csv")
 
 if label == "pga":
     Label_threshold = [0.080, 0.250, 0.80]
@@ -124,5 +176,5 @@ for index, label_threshold in zip(plot_index, Label_threshold):
     ax[index].set_ylim(-0.1, 1.1)
     ax[index].legend()
 # fig.savefig(
-#     f"{path}/ensemble model confusion matrix/different {label} threshold performance by time.png"
+#     f"{output_path}/different {label} threshold performance by time.png"
 # ,dpi=300)
