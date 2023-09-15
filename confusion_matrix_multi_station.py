@@ -46,10 +46,10 @@ for mask_after_sec in [3, 5, 7, 10]:
     intensity_score_dict["intensity_score"].append(intensity_score)
     intensity_table = pd.DataFrame(intensity_score_dict)
 
-    intensity_table.to_csv(
-        f"{output_path}/intensity table.csv",
-        index=False,
-    )
+    # intensity_table.to_csv(
+    #     f"{output_path}/intensity table.csv",
+    #     index=False,
+    # )
     # plot intensity score confusion matrix
 
     intensity_confusion_matrix = confusion_matrix(
@@ -70,6 +70,8 @@ for mask_after_sec in [3, 5, 7, 10]:
         cbar=True,
         cbar_kws={"label": "number of traces"},
     )  # font size
+    for i in range(len(intensity)):
+        ax.add_patch(plt.Rectangle((i, i), 1, 1, fill=False, edgecolor="gray", lw=2))
     ax.set_xlabel("Predicted intensity")
     ax.set_ylabel("Actual intensity")
     ax.set_title(

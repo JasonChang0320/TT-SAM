@@ -36,7 +36,7 @@ data = multiple_station_dataset(
 )
 # ===========predict==============
 device = torch.device("cuda")
-for num in range(1, 13):
+for num in [11]:
     path = f"./model/model{num}.pt"
     emb_dim = 150
     mlp_dims = (150, 100, 50, 30, 10)
