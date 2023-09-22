@@ -4,10 +4,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 sta_path = "data/station_information"
-prediction = pd.read_csv(
-    "predict/acc predict pga 1999_2019/model 2 5 sec prediction (train dataset).csv"
-)
-prediction = prediction[prediction["predict"] >= np.log10(0.25)]
+input_path = "predict/station_blind_Vs30_bias2closed_station_2016"
+prediction = pd.read_csv(f"{input_path}/model 11 5 sec prediction (train_data).csv")
+# prediction = prediction[prediction["predict"] >= np.log10(0.25)]
 station_info = pd.read_csv(f"{sta_path}/TSMIPstations_new.csv")
 # plot number of traces received by stations in 2016
 merge_traces = pd.merge(
@@ -47,3 +46,8 @@ ax_map.set_title(
     "Number of records (predict bigger than 25 gal) received by stations in train data"
 )
 # fig.savefig("./data preprocess/events_traces_catalog/Number of records (predict bigger than 25 gal) received by stations in train data.png")
+
+total_station_value_counts.to_csv(
+    "predict/station_blind_Vs30_bias2closed_station_2016/Number of records received by stations in train data.csv",
+    index=False,
+)
