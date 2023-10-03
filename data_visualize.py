@@ -14,77 +14,102 @@ from multiple_sta_dataset import (
     CustomSubset,
     multiple_station_dataset,
 )
-
-# from wordcloud import WordCloud
+import cartopy.crs as ccrs
+import cartopy
+from cartopy.mpl import ticker
 
 
 # events histogram
-Afile_path = "data/Afile"
-origin_catalog = pd.read_csv(f"{Afile_path}/final catalog.csv")
-# catalog=pd.read_csv(f"{Afile_path}/final catalog (station exist).csv")
+data_path = "data preprocess/events_traces_catalog"
+origin_catalog = pd.read_csv(f"{data_path}/1999_2019_final_catalog.csv")
 
-validation_year = 2018
+test_year = 2016
+train_catalog=origin_catalog.query(f"year!={test_year}")
+test_catalog=origin_catalog.query(f"year=={test_year}")
 fig, ax = plt.subplots()
-ax.hist(origin_catalog["magnitude"], bins=30, ec="black", label="train")
-# year_filter=(origin_catalog["year"]==validation_year)
-# ax.hist(origin_catalog[year_filter]["magnitude"],bins=30,ec='black',label="validation")
+ax.hist(train_catalog["depth"], bins=30, ec="black", label="train")
+ax.hist(test_catalog["depth"],bins=30, ec='black',label="test",alpha=0.8)
 ax.set_yscale("log")
-ax.set_xlabel("Magnitude")
-ax.set_ylabel("number of events")
-ax.set_title(f"1991-2020 TSIMP data: validate on {validation_year}")
-ax.set_title(f"1991-2020 TSIMP event catalog")
+ax.set_xlabel("Depth",fontsize=15)
+ax.set_ylabel("Number of events",fontsize=15)
 ax.legend()
+# fig.savefig(f"paper image/event depth distribution.png",dpi=300)
+# fig.savefig(f"paper image/event depth distribution.pdf",dpi=300)
+
+#event distribution in map
+src_crs = ccrs.PlateCarree()
+fig, ax_map = plt.subplots(subplot_kw={"projection": src_crs}, figsize=(7, 7))
+ax_map.coastlines("10m")
+ax_map.scatter(
+    train_catalog["lon"]+train_catalog["lon_minute"]/60,
+    train_catalog["lat"]+train_catalog["lat_minute"]/60,
+    edgecolors="k",
+    linewidth=1,
+    marker="o",
+    c="grey",
+    s=2**train_catalog["magnitude"],
+    zorder=3,
+    alpha=0.5,
+    label="train"
+)
+ax_map.scatter(
+    test_catalog["lon"]+test_catalog["lon_minute"]/60,
+    test_catalog["lat"]+test_catalog["lat_minute"]/60,
+    edgecolors="k",
+    linewidth=1,
+    marker="o",
+    c="orange",
+    s=2**test_catalog["magnitude"],
+    zorder=3,
+    alpha=0.5,
+    label="test"
+)
+ax_map.add_feature(
+    cartopy.feature.OCEAN, edgecolor="k"
+)
+
+xmin, xmax = ax_map.get_xlim()
+ymin, ymax = ax_map.get_ylim()
+xticks = ticker.LongitudeLocator(nbins=5)._raw_ticks(xmin, xmax)
+yticks = ticker.LatitudeLocator(nbins=5)._raw_ticks(ymin, ymax)
+
+ax_map.set_xticks(xticks, crs=ccrs.PlateCarree())
+ax_map.set_yticks(yticks, crs=ccrs.PlateCarree())
+
+ax_map.xaxis.set_major_formatter(
+    ticker.LongitudeFormatter(zero_direction_label=True)
+)
+ax_map.yaxis.set_major_formatter(ticker.LatitudeFormatter())
+
+ax_map.xaxis.set_ticks_position("both")
+ax_map.yaxis.set_ticks_position("both")
+ax_map.legend()
+fig.savefig(f"paper image/event distribution map.png",dpi=300)
+fig.savefig(f"paper image/event distribution map.pdf",dpi=300)
 
 # traces pga histogram
-# traces_catalog=pd.read_csv(f"{Afile_path}/2012-2020 traces with picking and label_new (sta location exist).csv")
 traces_catalog = pd.read_csv(
-    f"{Afile_path}/1991-2020 traces with picking and label_new.csv"
+    f"{data_path}/1999_2019_final_traces_Vs30.csv"
 )
-merged_catalog = pd.merge(traces_catalog, origin_catalog, how="left", on="EQ_ID")
-oldtime_catalog = merged_catalog[
-    (merged_catalog["year_y"] >= 1999)
-    & (merged_catalog["year_y"] <= 2020)
-    & (merged_catalog["magnitude"] >= 5.5)
-]
-newtime_catalog = merged_catalog[
-    (merged_catalog["year_y"] >= 2018)
-    & (merged_catalog["year_y"] <= 2020)
-    & (merged_catalog["magnitude"] >= 4.5)
-    & (merged_catalog["magnitude"] < 5.5)
-]
-now_catalog = merged_catalog[
-    (merged_catalog["year_y"] >= 2012) & (merged_catalog["year_y"] <= 2020)
-]
-concat_catalog = pd.concat([oldtime_catalog, newtime_catalog])
-# validation_year=2018
-PGA = np.sqrt(
-    now_catalog["pga_z"] ** 2 + now_catalog["pga_ns"] ** 2 + now_catalog["pga_ew"] ** 2
-)
-PGA_filtered = np.sqrt(
-    concat_catalog["pga_z"] ** 2
-    + concat_catalog["pga_ns"] ** 2
-    + concat_catalog["pga_ew"] ** 2
-)
-fig, ax = plt.subplots()
-ax.hist(np.log10(PGA / 100), bins=80, ec="black")
-ax.hist(np.log10(PGA_filtered / 100), bins=80, ec="black", alpha=0.5)
-# ax.hist(traces_catalog["pga"],bins=30,ec='black',label="train")
-# year_filter=(traces_catalog["year"]==validation_year)
-# ax.hist(traces_catalog[year_filter]["pga"],bins=30,ec='black',label="validation")
+
+fig, ax = plt.subplots(figsize=(8, 6))
+ax.hist(traces_catalog.query(f"year!={test_year}")["pga"], bins=30, ec="black", label="train")
+ax.hist(traces_catalog.query(f"year=={test_year}")["pga"], bins=30,alpha=0.8, ec="black",label="test")
 pga_threshold = np.log10(
     [1e-5, 0.008, 0.025, 0.080, 0.250, 0.80, 1.4, 2.5, 4.4, 8.0, 10]
 )
-# pga_threshold = [100*1e-5, 100*0.008, 100*0.025, 100*0.080, 100*0.250,
-#                 100*0.80, 100*1.4, 100*2.5, 100*4.4, 100*8.0,100*10]
 label = ["0", "1", "2", "3", "4", "5-", "5+", "6-", "6+", "7"]
 ax.vlines(pga_threshold[1:-1], 0, 17700, linestyles="dotted", color="k")
 for i in range(len(label)):
-    ax.text((pga_threshold[i] + pga_threshold[i + 1]) / 2, 15000, label[i])
+    if label[i]=="0":
+        continue
+    ax.text(((pga_threshold[i] + pga_threshold[i + 1]) / 2)-0.05, 15000, label[i])
 ax.set_yscale("log")
-# ax.set_xlabel("log (PGA m/s2)")
-ax.set_xlabel("PGA (gal)")
-ax.set_ylabel("number of traces")
-ax.set_title(f"TSMIP traces")
+ax.set_xlabel(r"PGA log(${m/s^2}$)",fontsize=15)
+ax.set_ylabel("Number of traces",fontsize=15)
+fig.legend(fontsize=13)
+fig.savefig(f"paper image/trace pga distribution.png",dpi=300)
+fig.savefig(f"paper image/trace pga distribution.pdf",dpi=300)
 # ax.set_title(f"2012-2020 TSIMP data: validate on {validation_year}")
 # ax.legend(loc="upper left")
 
