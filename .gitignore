@@ -23,6 +23,7 @@
 
 #data preprocess
 /data preprocess/events_traces_catalog
+/data preprocess/pick_result
 /data preprocess/._tracer_demo
 /data preprocess/tracer_demo.tar
 
@@ -31,6 +32,13 @@
 /data preprocess/tracer_demo/create_input_file/station_input.sta
 /data preprocess/tracer_demo/create_input_file/2009_2019_input
 /data preprocess/tracer_demo/create_input_file/1999_2008_input
+/data preprocess/tracer_demo/create_input_file/20230918_input
+/data preprocess/tracer_demo/model_image
 /data preprocess/tracer_demo/2009_2019_output
 /data preprocess/tracer_demo/1999_2008_output
+/data preprocess/tracer_demo/2023_output
 /data preprocess/cut event figure
+/data preprocess/0918_M6.8_1319_1330/*.csv
+/data preprocess/0918_M6.8_1319_1330/cut trace
+#CWA eew
+/CWA EEW report
