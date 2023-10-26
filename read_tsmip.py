@@ -278,12 +278,34 @@ def cut_traces(
     year = tmp_traces["year"][0]
     month = tmp_traces["month"][0]
     file_name = tmp_traces["file_name"][0]
+    try:
+        if len(str(month)) < 2:
+            month = "0" + str(month)
+        path = f"{waveform_path}/{year}/{month}"
+        file_name = file_name.strip()
+        stream = read_tsmip(f"{path}/{file_name}.txt")
+    except: #for special case
+        data = pd.read_csv(f"{waveform_path}/{file_name}.asc", sep="\s+", skiprows=1, header=None).to_numpy()
 
-    if len(str(month)) < 2:
-        month = "0" + str(month)
-    path = f"{waveform_path}/{year}/{month}"
-    file_name = file_name.strip()
-    stream = read_tsmip(f"{path}/{file_name}.txt")
+        with open(f"{waveform_path}/{file_name}.asc", "r") as f:
+            picks = f.readlines()[0]
+            picks = re.findall(r"\d+\.\d+", picks)
+            picks = [np.round(float(number), 2) for number in picks]
+
+        stream = obspy.core.stream.Stream()
+        channel = ["HLZ", "HLN", "HLE"]
+        for j, chan in enumerate(channel):
+            start = np.where(data == picks[2])[0][0]
+            end = np.where(data == picks[3])[0][0]
+            trace = obspy.core.trace.Trace(data[start:end, j + 1])
+
+            trace.stats.network = "TW"
+            # trace.stats.station = header[0][14:20]
+            trace.stats.channel = chan
+
+            trace.stats.sampling_rate = int(1 / abs(data[0, 0] - data[1, 0]))
+
+            stream.append(trace)
     sampling_rate = stream[0].stats["sampling_rate"]
     stream.detrend(type="demean")  # baseline correction
     stream.filter("lowpass", freq=10)  # filter
@@ -352,11 +374,34 @@ def cut_traces(
             month = tmp_traces["month"][i]
             file_name = tmp_traces["file_name"][i]
 
-            if len(str(month)) < 2:
-                month = "0" + str(month)
-            path = f"{waveform_path}/{year}/{month}"
-            file_name = file_name.strip()
-            stream = read_tsmip(f"{path}/{file_name}.txt")
+            try:
+                if len(str(month)) < 2:
+                    month = "0" + str(month)
+                path = f"{waveform_path}/{year}/{month}"
+                file_name = file_name.strip()
+                stream = read_tsmip(f"{path}/{file_name}.txt")
+            except: #for special case
+                data = pd.read_csv(f"{waveform_path}/{file_name}.asc", sep="\s+", skiprows=1, header=None).to_numpy()
+
+                with open(f"{waveform_path}/{file_name}.asc", "r") as f:
+                    picks = f.readlines()[0]
+                    picks = re.findall(r"\d+\.\d+", picks)
+                    picks = [np.round(float(number), 2) for number in picks]
+
+                stream = obspy.core.stream.Stream()
+                channel = ["HLZ", "HLN", "HLE"]
+                for j, chan in enumerate(channel):
+                    start = np.where(data == picks[2])[0][0]
+                    end = np.where(data == picks[3])[0][0]
+                    trace = obspy.core.trace.Trace(data[start:end, j + 1])
+
+                    trace.stats.network = "TW"
+                    # trace.stats.station = header[0][14:20]
+                    trace.stats.channel = chan
+
+                    trace.stats.sampling_rate = int(1 / abs(data[0, 0] - data[1, 0]))
+
+                    stream.append(trace)
             sampling_rate = stream[0].stats["sampling_rate"]
             if sampling_rate != target_sampling_rate:
                 stream.resample(target_sampling_rate, window="hann")
