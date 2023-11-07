@@ -1,4 +1,5 @@
 # TEAM_Taiwan
+This project is still in development status. We will update as soon as possible.
 
 This is a deep learning model trying to implement EEW systems in Taiwan, data is contributed from TSMIP.
 
@@ -33,9 +34,10 @@ Reference: Münchmeyer et al.,2021 (https://academic.oup.com/gji/article/225/1/6
 
 Calculate precision, recall, F1 score and calculate warthquake warning time
 
+## Model architecture
+![image](prediction_images_in_readme/TEAM-Taiwan_model_architecture.png)
+
 ## Model performance
 
 ![image](prediction_images_in_readme/24784_mag_6.6_5sec_PGA_intensity_Map.png)
 ![image](prediction_images_in_readme/25396_mag_6.1_5sec_PGA_intensity_Map.png)
-
-
