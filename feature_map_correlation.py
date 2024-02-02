@@ -6,6 +6,7 @@ import pandas as pd
 import torch
 from tqdm import tqdm
 import os
+import seaborn as sns
 from scipy.ndimage import zoom
 from CNN_Transformer_Mixtureoutput_TEAM import CNN_feature_map
 from multiple_sta_dataset import multiple_station_dataset
@@ -14,7 +15,7 @@ from scipy.stats import pearsonr
 from scipy.signal import hilbert
 
 
-# ==========function=================
+# ==========functions=================
 def first_occurrences_indices(b):
     first_indices = {}  # 用字典来存储不同数字的第一次出现的索引
 
@@ -23,6 +24,7 @@ def first_occurrences_indices(b):
             first_indices[item] = i  # 记录不同数字的第一次出现的索引
 
     return first_indices
+
 
 def normalize_to_zero_one(arr):
     # 找到数组的最小值和最大值
@@ -33,6 +35,7 @@ def normalize_to_zero_one(arr):
     normalized_arr = (arr - min_val) / (max_val - min_val)
 
     return normalized_arr
+
 
 def calculate_tlcc(time_series1, time_series2, max_delay):
     """
@@ -69,6 +72,7 @@ def calculate_tlcc(time_series1, time_series2, max_delay):
 
     return delay, tlcc_values
 
+
 def plot_waveform(waveform, eq_id, input_station_list, output_path=None):
     fig, ax = plt.subplots(3, 1, figsize=(14, 7))
     for j in range(len(ax)):
@@ -77,6 +81,7 @@ def plot_waveform(waveform, eq_id, input_station_list, output_path=None):
     if output_path:
         fig.savefig(f"{output_path}/3 channel input waveform{i+1}.png", dpi=300)
     return fig, ax
+
 
 def plot_correlation_curve_with_shift_time(
     delay_values, tlcc_values, eq_id, attribute, output_path=None
@@ -95,6 +100,7 @@ def plot_correlation_curve_with_shift_time(
             dpi=300,
         )
     return fig, ax
+
 
 def plot_attribute_with_feature_map(
     attribute_arr,
@@ -151,6 +157,7 @@ def plot_attribute_with_feature_map(
         )
     return fig, ax
 
+
 def plot_correlation_hist(
     attribute_dict, attribute, TLCC_mean, TLCC_std, mask_after_sec, output_path=None
 ):
@@ -180,6 +187,7 @@ def plot_correlation_hist(
             dpi=300,
         )
     return fig, ax
+
 
 def plot_time_shifted_with_correlation(
     attribute_dict, attribute, TLCC_mean, TLCC_std, mask_after_sec, output_path=None
@@ -230,6 +238,32 @@ def plot_time_shifted_with_hist(
             dpi=300,
         )
     return fig, ax
+
+
+def correlation_with_attributes_heat_map(data, attributes=None, output_path=None):
+    fig, ax = plt.subplots()
+    sns.heatmap(data, annot=True, cmap="Reds")
+
+    ax.set_xticks([x + 0.5 for x in range(data.shape[1])])
+    ax.set_xticklabels(["3", "5", "7", "10"], fontsize=12)
+
+    ax.set_yticks([x + 0.5 for x in range(data.shape[0])])
+    plt.yticks(rotation=0)
+    ax.set_yticklabels(attributes, fontsize=12)
+
+    ax.set_xlabel("second", fontsize=13)
+
+    cbar = ax.collections[0].colorbar
+
+    # 设置颜色条标签的字体大小
+    cbar.set_label("Correlation", fontsize=12)
+    plt.tight_layout()
+    if output_path:
+        fig.savefig(f"{output_path}/correlation_heat_map.png", dpi=300)
+    return fig, ax
+
+
+# ===================================
 
 mask_after_sec = 10
 sample_rate = 200
@@ -409,11 +443,9 @@ for key, index in tqdm(zip(eq_first_index.keys(), eq_first_index.values())):
             attribute_dict[attribute]["max_delay"].append(max_delay)
 
             if key == 24784:  # plot
-                # ========================
                 fig, ax = plot_correlation_curve_with_shift_time(
                     delay_values, tlcc_values, key, attribute, output_path=None
                 )
-                # ========================
                 fig, ax = plot_attribute_with_feature_map(
                     component_dict[attribute][i],
                     resized_feature_map[i],
@@ -425,7 +457,6 @@ for key, index in tqdm(zip(eq_first_index.keys(), eq_first_index.values())):
                     tlcc_values,
                     input_station_list[i],
                 )
-                # ========================
 
 output_path = f"{output_path}/{mask_after_sec} sec cnn feature map"
 
@@ -454,3 +485,33 @@ for attribute in attribute_dict:
         mask_after_sec,
         output_path=None,
     )
+
+# belowed data is correlation with attributes in different seconds
+data = np.array(
+    [
+        [0.61, 0.53, 0.49, 0.46],
+        [0.68, 0.58, 0.52, 0.5],
+        [0.59, 0.51, 0.47, 0.46],
+        [0.58, 0.5, 0.47, 0.45],
+        [0.29, 0.23, 0.18, 0.12],
+        [0.29, 0.23, 0.18, 0.12],
+        [0.29, 0.23, 0.18, 0.12],
+        [0.3, 0.22, 0.16, 0.11],
+        [0.29, 0.21, 0.15, 0.1],
+        [0.3, 0.21, 0.15, 0.1],
+    ]
+)
+attributes = [
+    "Euclidean norm",
+    "Vertical envelope",
+    "NS envelope",
+    "EW envelope",
+    "Vertical phase",
+    "NS phase",
+    "EW phase",
+    "Vertical frequency",
+    "NS frequency",
+    "EW frequency",
+]
+output_path = "./predict/station_blind_Vs30_bias2closed_station_2016"
+fig, ax = correlation_with_attributes_heat_map(data, attributes, output_path=None)

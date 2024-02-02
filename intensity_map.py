@@ -1,4 +1,3 @@
-import h5py
 import numpy as np
 import pandas as pd
 import os
@@ -20,7 +19,7 @@ if label_type == "pgv":
     intensity = "V"
 
 path = "./predict/station_blind_Vs30_bias2closed_station_2016"
-output_path=f"{path}/mag bigger 5.5 predict"
+output_path = f"{path}/mag bigger 5.5 predict"
 if not os.path.isdir(output_path):
     os.mkdir(output_path)
 Afile_path = "data preprocess/events_traces_catalog"
@@ -33,7 +32,8 @@ prediction_with_info = pd.read_csv(
     f"{path}/{mask_after_sec} sec model11 with all info.csv"
 )
 
-for EQ_ID in catalog.query("year==2016 & magnitude>=5.5")["EQ_ID"]:
+# for EQ_ID in catalog.query("year==2016 & magnitude>=5.5")["EQ_ID"]:
+for EQ_ID in [24784, 25900]:
     event = catalog[catalog["EQ_ID"] == EQ_ID]
     event = event.assign(
         latitude=event["lat"] + event["lat_minute"] / 60,
@@ -51,15 +51,14 @@ for EQ_ID in catalog.query("year==2016 & magnitude>=5.5")["EQ_ID"]:
         EQ_ID=EQ_ID,
         grid_method="linear",
         pad=100,
-        title=f"EQID: {EQ_ID}, mag: {event['magnitude'].values[0]}, {mask_after_sec} sec PGA intensity Map",
+        title=f"{mask_after_sec} sec intensity Map",
     )
     # fig.savefig(
-    #     f"{output_path}/{EQ_ID}_mag_{event['magnitude'].values[0]}_{mask_after_sec}sec PGA intensity Map.png", dpi=450, bbox_inches="tight"
+    #     f"paper image/{EQ_ID}_{mask_after_sec}sec PGA intensity Map_poster.png", dpi=600, bbox_inches="tight"
     # )
     fig, ax = true_predicted(
         y_true=event_prediction["answer"],
         y_pred=event_prediction["predict"],
-        time=mask_after_sec,
         quantile=False,
         agg="point",
         point_size=70,
@@ -80,8 +79,8 @@ for EQ_ID in catalog.query("year==2016 & magnitude>=5.5")["EQ_ID"]:
             label_threshold=label_threshold,
         )
 
-        # fig.savefig(f"{output_path}/{EQ_ID}_mag_{event['magnitude'].values[0]}_{mask_after_sec} sec warning map.png",
-        #             dpi=300)
+        # fig.savefig(f"paper image/{EQ_ID}_mag_{event['magnitude'].values[0]}_{mask_after_sec} sec warning map.png",
+        #             dpi=600)
         fig, ax = correct_warning_with_epidist(
             event_prediction=event_prediction,
             label_threshold=label_threshold,
@@ -108,50 +107,3 @@ for EQ_ID in catalog.query("year==2016 & magnitude>=5.5")["EQ_ID"]:
     except Exception as e:
         print(EQ_ID)
         continue
-
-
-
-############################################################## M3.5 + M5.5
-import matplotlib.pyplot as plt
-import seaborn as sns
-
-before_catalog = pd.read_csv(f"{Afile_path}/2009_2019_ok_events_p_arrival_abstime.csv")
-after_catalog = pd.read_csv(f"{Afile_path}/1999_2019_final_catalog.csv")
-
-before_catalog["from"] = "2009~2019 M>=3.5"
-after_catalog["from"] = "1999~2008 M>=5.5"
-
-catalog = pd.concat([before_catalog, after_catalog])
-catalog.reset_index(inplace=True, drop=True)
-
-fig, ax = plt.subplots(figsize=(7, 7))
-sns.histplot(catalog, x="magnitude", hue="from", alpha=1, ax=ax)
-ax.set_title("Events Catalog", fontsize=20)
-ax.set_yscale("log")
-ax.set_xlabel("Magnitude", fontsize=13)
-ax.set_ylabel("Count", fontsize=13)
-###### trace
-before_trace = pd.read_csv(
-    f"{Afile_path}/2009_2019_picked_traces_p_arrival_abstime_labeled_nostaoverlap.csv"
-)
-after_trace = pd.read_csv(f"{Afile_path}/1999_2019_final_traces.csv")
-
-before_trace["from"] = "2009~2019 M>=3.5"
-after_trace["from"] = "1999~2008 M>=5.5"
-
-trace = pd.concat([before_trace, after_trace])
-trace.reset_index(inplace=True, drop=True)
-label = ["2", "3", "4", "5-", "5+", "6-", "6+", "7"]
-pga_threshold = np.log10([0.025, 0.080, 0.250, 0.80, 1.4, 2.5, 4.4, 8.0, 10])
-fig, ax = plt.subplots(figsize=(7, 7))
-sns.histplot(trace, x="pga", hue="from", alpha=1, ax=ax, bins=32)
-for i in range(len(pga_threshold) - 1):
-    ax.text((pga_threshold[i] + pga_threshold[i + 1]) / 2, 10000, label[i])
-ax.vlines(pga_threshold[1:-1], 0, 40000, linestyles="dotted", color="k")
-ax.set_title("Traces catalog", fontsize=20)
-ax.set_yscale("log")
-ax.set_xlabel("PGA log(m/s^2)", fontsize=13)
-ax.set_ylabel("Count", fontsize=13)
-
-print(len(before_trace.query(f"pga >={pga_threshold[2]}")) / len(before_trace))
-print(len(after_trace.query(f"pga >={pga_threshold[2]}")) / len(after_trace))
