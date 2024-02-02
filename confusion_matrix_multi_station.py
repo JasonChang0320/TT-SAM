@@ -19,6 +19,20 @@ if label == "pgv":
     Label_threshold = np.log10(np.array([0.019, 0.057, 0.15]))  # 3,4,5級
     unit = "m/s"
 
+#形成 warning threshold array 其中包含對應的4~5級標準
+target_value = np.log10(0.8)
+
+# 生成一個包含目標值的數組
+score_curve_threshold = np.linspace(np.log10(0.025), np.log10(1.4), 100)
+
+# 檢查最接近的值
+closest_value = min(score_curve_threshold, key=lambda x: abs(x - target_value))
+
+# 調整num參數以確保包含目標值
+if closest_value != target_value:
+    num_adjusted = 100 + int(np.ceil(abs(target_value - closest_value) / np.diff(score_curve_threshold[:2])))
+    score_curve_threshold = np.linspace(np.log10(0.025), np.log10(1.4), num_adjusted)
+
 
 def pga_to_intensity(value):
     pga_threshold = np.log10([0.008, 0.025, 0.080, 0.250, 0.80, 1.4, 2.5, 4.4, 8.0, 10])
@@ -28,8 +42,68 @@ def pga_to_intensity(value):
             return intensity[i]
     return intensity[-1]
 
+def plot_intensity_confusion_matrix(
+    intensity_confusion_matrix,
+    intensity_score,
+    x_y_ticks,
+    mask_after_sec,
+    output_path=None,
+):
+    sn.set(rc={"figure.figsize": (8, 8)}, font_scale=1.2)  # for label size
+    fig, ax = plt.subplots()
+    sn.heatmap(
+        intensity_confusion_matrix,
+        ax=ax,
+        xticklabels=x_y_ticks,
+        yticklabels=x_y_ticks,
+        fmt="g",
+        annot=True,
+        annot_kws={"size": 16},
+        cmap="Reds",
+        cbar=True,
+        cbar_kws={"label": "number of traces"},
+    )  # font size
+    for i in range(len(intensity)):
+        ax.add_patch(plt.Rectangle((i, i), 1, 1, fill=False, edgecolor="gray", lw=2))
+    ax.set_xlabel("Predicted intensity", fontsize=18)
+    ax.set_ylabel("Actual intensity", fontsize=18)
+    ax.set_title(
+        f"{mask_after_sec} sec intensity confusion matrix, intensity score: {np.round(intensity_score,3)}"
+    )
+    if output_path:
+        fig.savefig(
+            f"{output_path}/{mask_after_sec} sec intensity confusion matrix.png",
+            dpi=300,
+        )
+    return fig, ax
+
+def plot_score_curve(
+    performance_score,
+    fig,
+    ax,
+    score_type,
+    score_curve_threshold,
+    mask_after_sec,
+    output_path=None,
+):
+    ax.plot(
+        100 * (10**score_curve_threshold),
+        performance_score[f"{score_type}"],
+        label=f"{mask_after_sec} sec",
+    )
+    ax.set_xlabel(r"PGA threshold (${cm/s^2}$)", fontsize=15)
+    ax.set_ylabel("score", fontsize=15)
+    ax.set_title(f"{score_type} curve", fontsize=22)
+    ax.set_ylim(0, 1.1)
+    ax.legend()
+    if output_path:
+        fig.savefig(f"{output_path}/{score_type}_curve.png", dpi=300)
+    return fig, ax
 
 intensity_score_dict = {"second": [], "intensity_score": []}
+f1_curve_fig, f1_curve_ax = plt.subplots()
+precision_curve_fig, precision_curve_ax = plt.subplots()
+recall_curve_fig, recall_curve_ax = plt.subplots()
 for mask_after_sec in [3, 5, 7, 10]:
     data = pd.read_csv(f"{path}/{mask_after_sec} sec model11 with all info.csv")
 
@@ -46,41 +120,15 @@ for mask_after_sec in [3, 5, 7, 10]:
     intensity_score_dict["intensity_score"].append(intensity_score)
     intensity_table = pd.DataFrame(intensity_score_dict)
 
-    # intensity_table.to_csv(
-    #     f"{output_path}/intensity table.csv",
-    #     index=False,
-    # )
+    intensity_table.to_csv(
+        f"{output_path}/intensity table.csv",
+        index=False,
+    )
     # plot intensity score confusion matrix
-
     intensity_confusion_matrix = confusion_matrix(
         data["answer_intensity"], data["predicted_intensity"], labels=intensity
     )
-
-    sn.set(rc={"figure.figsize": (8, 8)}, font_scale=1.2)  # for label size
-    fig, ax = plt.subplots()
-    sn.heatmap(
-        intensity_confusion_matrix,
-        ax=ax,
-        xticklabels=intensity,
-        yticklabels=intensity,
-        fmt="g",
-        annot=True,
-        annot_kws={"size": 16},
-        cmap="Reds",
-        cbar=True,
-        cbar_kws={"label": "number of traces"},
-    )  # font size
-    for i in range(len(intensity)):
-        ax.add_patch(plt.Rectangle((i, i), 1, 1, fill=False, edgecolor="gray", lw=2))
-    ax.set_xlabel("Predicted intensity")
-    ax.set_ylabel("Actual intensity")
-    ax.set_title(
-        f"{mask_after_sec} sec intensity confusion matrix, intensity score: {np.round(intensity_score,3)}"
-    )
-    fig.savefig(
-        f"{output_path}/{mask_after_sec} sec intensity confusion matrix, {label} intensity threshold.png",
-        dpi=300,
-    )
+    fig,ax=plot_intensity_confusion_matrix(intensity_confusion_matrix,intensity_score,intensity,mask_after_sec,output_path=None)
 
     performance_score = {
         f"{label}_threshold ({unit})": [],
@@ -88,12 +136,11 @@ for mask_after_sec in [3, 5, 7, 10]:
         "accuracy": [],
         "precision": [],
         "recall": [],
-        "f1_score": [],
+        "F1": [],
     }
-    for label_threshold in Label_threshold:
+    for label_threshold in score_curve_threshold:
         predict_logic = np.where(predict_label > label_threshold, 1, 0)
         real_logic = np.where(real_label > label_threshold, 1, 0)
-
         matrix = confusion_matrix(real_logic, predict_logic, labels=[1, 0])
         accuracy = np.sum(np.diag(matrix)) / np.sum(matrix)  # (TP+TN)/all
         precision = matrix[0][0] / np.sum(matrix, axis=0)[0]  # TP/(TP+FP)
@@ -106,77 +153,38 @@ for mask_after_sec in [3, 5, 7, 10]:
         performance_score["accuracy"].append(accuracy)
         performance_score["precision"].append(precision)
         performance_score["recall"].append(recall)
-        performance_score["f1_score"].append(F1_score)
-        sn.set(rc={"figure.figsize": (8, 5)}, font_scale=1.2)  # for label size
-        fig, ax = plt.subplots()
-        sn.heatmap(
-            matrix,
-            ax=ax,
-            xticklabels=["Predict True", "Predict False"],
-            yticklabels=["Actual True", "Actual False"],
-            fmt="g",
-            annot=True,
-            annot_kws={"size": 16},
-            cmap="Reds",
-        )  # font size
-        ax.set_title(
-            f"EEW {mask_after_sec} sec confusion matrix, {label} threshold: {np.round((10**label_threshold),3)} ({unit})"
-        )
-        # fig.savefig(
-        #     f"{output_path}/{mask_after_sec} sec {label}_threshold {np.round((10**label_threshold),3)}.png"
-        # ,dpi=300)
-        predict_table = pd.DataFrame(performance_score)
-        # predict_table.to_csv(
-        #     f"{output_path}/{mask_after_sec} sec confusion matrix table.csv",
-        #     index=False,
-        # )
-    # label threshold performance
-    axis_fontsize = 30
-    Fig, axes = plt.subplots(1, 3, figsize=(14, 5))
-    for i, column in enumerate(["precision", "recall", "f1_score"]):
-        x_axis = [
-            str(label) for label in performance_score[f"{label}_threshold ({unit})"]
-        ]
-        axes[i].bar(x_axis, performance_score[f"{column}"])
-        axes[i].set_title(f"{column}", fontsize=axis_fontsize)
-        axes[i].tick_params(axis="both", which="major", labelsize=axis_fontsize - 15)
-        axes[i].set_ylim(0, 1)
-    axes[1].set_xlabel(f"{label} threshold ({unit})", fontsize=axis_fontsize - 12)
-    # Fig.savefig(f"{output_path}/{mask_after_sec} sec F1 score.png",dpi=300)
+        performance_score["F1"].append(F1_score)
 
-# pga threshold by time plot
-sec3_table = pd.read_csv(f"{output_path}/3 sec confusion matrix table.csv")
-sec5_table = pd.read_csv(f"{output_path}/5 sec confusion matrix table.csv")
-sec7_table = pd.read_csv(f"{output_path}/7 sec confusion matrix table.csv")
-sec10_table = pd.read_csv(f"{output_path}/10 sec confusion matrix table.csv")
+    f1_curve_fig, f1_curve_ax = plot_score_curve(
+        performance_score,
+        f1_curve_fig,
+        f1_curve_ax,
+        "F1",
+        score_curve_threshold,
+        mask_after_sec,
+        output_path=None,
+    )
+    precision_curve_fig, precision_curve_ax = plot_score_curve(
+        performance_score,
+        precision_curve_fig,
+        precision_curve_ax,
+        "precision",
+        score_curve_threshold,
+        mask_after_sec,
+        output_path=None,
+    )
+    recall_curve_fig, recall_curve_ax = plot_score_curve(
+        performance_score,
+        recall_curve_fig,
+        recall_curve_ax,
+        "recall",
+        score_curve_threshold,
+        mask_after_sec,
+        output_path=None,
+    )
 
-if label == "pga":
-    Label_threshold = [0.080, 0.250, 0.80]
-if label == "pgv":
-    Label_threshold = [0.019, 0.057, 0.15]
-fig, ax = plt.subplots(1, 3, figsize=(21, 7))
-plot_index = [0, 1, 2]
-for index, label_threshold in zip(plot_index, Label_threshold):
-    Accuracy = []
-    Precision = []
-    Recall = []
-    F1_score = []
-    for table in [sec3_table, sec5_table, sec7_table, sec10_table]:
-        tmp_table = table[table[f"{label}_threshold ({unit})"] == label_threshold]
-        Accuracy.append(tmp_table["accuracy"].values[0])
-        Precision.append(tmp_table["precision"].values[0])
-        Recall.append(tmp_table["recall"].values[0])
-        F1_score.append(tmp_table["f1_score"].values[0])
-    ax[index].plot(Accuracy, marker="o", label="accuracy")
-    ax[index].plot(Precision, marker="o", label="precision")
-    ax[index].plot(Recall, marker="o", label="recall")
-    ax[index].plot(F1_score, marker="o", label="F1 score")
-    ax[index].set_title(f"{label} threshold: {label_threshold} (m/s^2)", fontsize=25)
-    ax[index].set_xticks([0, 1, 2, 3])
-    ax[index].set_xticklabels(["3", "5", "7", "10"])
-    ax[index].set_xlabel("After first triggered station (sec)", fontsize=15)
-    ax[index].set_ylim(-0.1, 1.1)
-    ax[index].legend()
-# fig.savefig(
-#     f"{output_path}/different {label} threshold performance by time.png"
-# ,dpi=300)
+    predict_table = pd.DataFrame(performance_score)
+    predict_table.to_csv(
+        f"{output_path}/{mask_after_sec} sec confusion matrix table.csv",
+        index=False,
+    )

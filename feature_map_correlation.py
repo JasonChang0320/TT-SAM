@@ -4,12 +4,10 @@ plt.subplots()
 import numpy as np
 import pandas as pd
 import torch
-from torch.utils.data import DataLoader
 from tqdm import tqdm
 import os
 from scipy.ndimage import zoom
-
-from CNN_Transformer_Mixtureoutput_TEAM import CNN
+from CNN_Transformer_Mixtureoutput_TEAM import CNN_feature_map
 from multiple_sta_dataset import multiple_station_dataset
 import os
 from scipy.stats import pearsonr
@@ -26,7 +24,6 @@ def first_occurrences_indices(b):
 
     return first_indices
 
-
 def normalize_to_zero_one(arr):
     # 找到数组的最小值和最大值
     min_val = arr.min()
@@ -36,7 +33,6 @@ def normalize_to_zero_one(arr):
     normalized_arr = (arr - min_val) / (max_val - min_val)
 
     return normalized_arr
-
 
 def calculate_tlcc(time_series1, time_series2, max_delay):
     """
@@ -73,8 +69,169 @@ def calculate_tlcc(time_series1, time_series2, max_delay):
 
     return delay, tlcc_values
 
+def plot_waveform(waveform, eq_id, input_station_list, output_path=None):
+    fig, ax = plt.subplots(3, 1, figsize=(14, 7))
+    for j in range(len(ax)):
+        ax[j].plot(waveform[i, :, j])
+    ax[0].set_title(f"EQ_ID: {eq_id} input waveform{i+1},{input_station_list[i]}")
+    if output_path:
+        fig.savefig(f"{output_path}/3 channel input waveform{i+1}.png", dpi=300)
+    return fig, ax
 
-mask_after_sec = 3
+def plot_correlation_curve_with_shift_time(
+    delay_values, tlcc_values, eq_id, attribute, output_path=None
+):
+    fig, ax = plt.subplots(figsize=(14, 7))
+    ax.plot(delay_values, tlcc_values)
+    ax.xaxis.set_tick_params(labelsize=15)
+    ax.yaxis.set_tick_params(labelsize=15)
+    ax.set_xlabel("Shift Time Sample", fontsize=15)
+    ax.set_ylabel("TLCC (Pearson Correlation) Value", fontsize=15)
+    ax.set_title(f"EQ_ID: {eq_id} {attribute}{i+1} TLCC Analysis", fontsize=15)
+    ax.grid(True)
+    if output_path:
+        fig.savefig(
+            f"{output_path}/{mask_after_sec} sec {attribute}{i+1} TLCC Analysis.png",
+            dpi=300,
+        )
+    return fig, ax
+
+def plot_attribute_with_feature_map(
+    attribute_arr,
+    resized_feature_map,
+    key,
+    attribute,
+    correlation_starttime,
+    correlation_endtime,
+    correlation,
+    tlcc_values,
+    input_station,
+    output_path=None,
+):
+    x_pos = 0.05
+    y_pos = 0.6
+    fig, ax = plt.subplots(3, 1, figsize=(14, 7))
+    ax[0].plot(normalize_to_zero_one(attribute_arr), alpha=0.7)
+    ax[1].plot(normalize_to_zero_one(resized_feature_map), c="red")
+    ax[2].plot(
+        normalize_to_zero_one(attribute_arr),
+        alpha=0.7,
+        label=f"{attribute}",
+    )
+    ax[2].plot(
+        normalize_to_zero_one(resized_feature_map),
+        c="red",
+        label="feature map",
+    )
+    for j in range(len(ax)):
+        ax[j].axvline(x=correlation_starttime, color="grey", linestyle="--")
+        ax[j].axvline(x=correlation_endtime, color="grey", linestyle="--")
+    ax[2].text(
+        x_pos,
+        y_pos,
+        f"correlation: {np.round(correlation, 2)}\nTLCC max correlation: {np.round(np.array(tlcc_values).max(),2)}",
+        transform=ax[j].transAxes,
+        fontsize=15,
+        horizontalalignment="left",
+        verticalalignment="top",
+    )
+    ax[0].set_title(
+        f"EQ_ID: {key} {attribute}, station_name:{input_station}",
+        fontsize=15,
+    )
+    ax[1].set_ylabel("normalized acc", fontsize=15)
+    ax[-1].set_xlabel("time sample", fontsize=15)
+    ax[-1].xaxis.set_tick_params(labelsize=15)
+    ax[-1].yaxis.set_tick_params(labelsize=15)
+    ax[2].legend()
+    if output_path:
+        fig.savefig(
+            f"{output_path}/{attribute}_{input_station} with feature map.png",
+            dpi=300,
+        )
+    return fig, ax
+
+def plot_correlation_hist(
+    attribute_dict, attribute, TLCC_mean, TLCC_std, mask_after_sec, output_path=None
+):
+    # hist
+    fig, ax = plt.subplots()
+    ax.hist(
+        np.array(attribute_dict[attribute]["tlcc_max_correlation"]),
+        bins=15,
+        edgecolor="k",
+    )
+    ax.set_xlabel("correlation", fontsize=12)
+    ax.set_ylabel("number of traces", fontsize=12)
+    ax.set_title(
+        f"Correlation (TLCC) of \n{mask_after_sec} sec {attribute}",
+        fontsize=15,
+    )
+    ax.text(
+        0.8,
+        0.8,
+        f"mean:{TLCC_mean}\nstd:{TLCC_std}",
+        transform=ax.transAxes,
+        fontsize=12,
+    )
+    if output_path:
+        fig.savefig(
+            f"{output_path}/correlation (TLCC) with {attribute} histogram.png",
+            dpi=300,
+        )
+    return fig, ax
+
+def plot_time_shifted_with_correlation(
+    attribute_dict, attribute, TLCC_mean, TLCC_std, mask_after_sec, output_path=None
+):
+    fig, ax = plt.subplots()
+    ax.scatter(
+        attribute_dict[attribute]["max_delay"],
+        attribute_dict[attribute]["tlcc_max_correlation"],
+        alpha=0.5,
+        s=15,
+    )
+
+    ax.set_xlabel("shifted time sample")
+    ax.set_ylabel("max Pearson correlation")
+    ax.set_title(
+        f"Correlation (TLCC) with delay time{mask_after_sec} sec \n{attribute}, mean :{TLCC_mean}, std: {TLCC_std}",
+        fontsize=15,
+    )
+    if output_path:
+        fig.savefig(
+            f"{output_path}/{mask_after_sec} sec {attribute} TLCC max correlation delay time.png",
+            dpi=300,
+        )
+    return fig, ax
+
+
+def plot_time_shifted_with_hist(
+    attribute_dict, attribute, delay_mean, delay_std, mask_after_sec, output_path=None
+):
+    fig, ax = plt.subplots()
+    ax.hist(attribute_dict[attribute]["max_delay"], bins=15, edgecolor="k")
+    ax.text(
+        0.75,
+        0.8,
+        f"mean:{delay_mean}\nstd:{delay_std}",
+        transform=ax.transAxes,
+        fontsize=12,
+    )
+    ax.set_xlabel("shifted time sample", fontsize=12)
+    ax.set_ylabel("number of traces", fontsize=12)
+    ax.set_title(
+        f"{mask_after_sec} sec {attribute}\ndistribution of time delay with max correlation (TLCC)",
+        fontsize=15,
+    )
+    if output_path:
+        fig.savefig(
+            f"{output_path}/{mask_after_sec} sec {attribute} distribution of time delay with max correlation (TLCC).png",
+            dpi=300,
+        )
+    return fig, ax
+
+mask_after_sec = 10
 sample_rate = 200
 label = "pga"
 data = multiple_station_dataset(
@@ -97,7 +254,7 @@ num = 11
 path = f"./model/model{num}.pt"
 emb_dim = 150
 mlp_dims = (150, 100, 50, 30, 10)
-CNN_model = CNN(mlp_input=5665).cuda()
+CNN_model = CNN_feature_map(mlp_input=5665).cuda()
 
 full_model_parameter = torch.load(f"./model/model{num}.pt")
 # ===========load CNN parameter==============
@@ -115,8 +272,7 @@ for eq_id in data.events_index:
     event_index_list.append(eq_id[0][0, 0])
 
 eq_first_index = first_occurrences_indices(event_index_list)
-x_pos = 0.05
-y_pos = 0.6
+
 # plot feature map and calculate correlation
 attribute_dict = {
     "euclidean_norm": {"correlation": [], "tlcc_max_correlation": [], "max_delay": []},
@@ -158,10 +314,8 @@ attribute_dict = {
         "max_delay": [],
     },
 }
-
+print(len(eq_first_index.keys()))
 for key, index in tqdm(zip(eq_first_index.keys(), eq_first_index.values())):
-    # if key != 24784:
-    #     continue
     event_output_path = (
         f"{output_path}/{mask_after_sec} sec cnn feature map/each event/{str(key)}"
     )
@@ -181,16 +335,12 @@ for key, index in tqdm(zip(eq_first_index.keys(), eq_first_index.values())):
         input_station_list += [np.nan] * (25 - len(input_station_list))
 
     p_picks = sample["p_picks"].flatten().tolist()
+    # plot 24784 input waveform
     if key == 24784:
         for i in range(not_padding_station_number):
-            fig, ax = plt.subplots(3, 1, figsize=(14, 7))
-            for j in range(len(ax)):
-                ax[j].plot(waveform[i, :, j])
-            ax[0].set_title(f"EQ_ID: {key} input waveform{i+1},{input_station_list[i]}")
-            fig.savefig(f"{event_output_path}/3 channel input waveform{i+1}.png", dpi=300)
-            plt.close()
+            fig, ax = plot_waveform(waveform, key, input_station_list)
 
-    cnn_input = torch.DoubleTensor(sample["waveform"]).float().cuda()
+    cnn_input = torch.DoubleTensor(waveform).float().cuda()
     cnn_output, layer_output = CNN_model(cnn_input)
     numeric_array = np.array(layer_output[-1].detach().cpu(), dtype=np.float32)
     feature_map = np.mean(numeric_array, axis=1)
@@ -233,7 +383,7 @@ for key, index in tqdm(zip(eq_first_index.keys(), eq_first_index.values())):
                     resized_feature_map[i, correlation_starttime:correlation_endtime],
                     max_delay=100,
                 )
-            except:
+            except:  # for second=10
                 correlation = np.corrcoef(
                     component_dict[attribute][
                         i, correlation_starttime:correlation_endtime
@@ -258,129 +408,49 @@ for key, index in tqdm(zip(eq_first_index.keys(), eq_first_index.values())):
             attribute_dict[attribute]["tlcc_max_correlation"].append(max_correlation)
             attribute_dict[attribute]["max_delay"].append(max_delay)
 
-            if key == 24784:
-                fig, ax = plt.subplots(figsize=(14, 7))
-                ax.plot(delay_values, tlcc_values)
+            if key == 24784:  # plot
+                # ========================
+                fig, ax = plot_correlation_curve_with_shift_time(
+                    delay_values, tlcc_values, key, attribute, output_path=None
+                )
+                # ========================
+                fig, ax = plot_attribute_with_feature_map(
+                    component_dict[attribute][i],
+                    resized_feature_map[i],
+                    key,
+                    attribute,
+                    correlation_starttime,
+                    correlation_endtime,
+                    correlation,
+                    tlcc_values,
+                    input_station_list[i],
+                )
+                # ========================
 
-                ax.set_xlabel("Time Lag")
-                ax.set_ylabel("TLCC (Pearson Correlation) Value")
-                ax.set_title(f"EQ_ID: {key} {attribute}{i+1} TLCC Analysis")
-                ax.grid(True)
-                fig.savefig(
-                    f"{event_output_path}/{mask_after_sec} sec {attribute}{i+1} TLCC Analysis.png",
-                    dpi=300,
-                )
-                plt.close()
+output_path = f"{output_path}/{mask_after_sec} sec cnn feature map"
 
-                fig, ax = plt.subplots(3, 1, figsize=(14, 7))
-                ax[0].plot(normalize_to_zero_one(component_dict[attribute][i]), alpha=0.7)
-                ax[1].plot(normalize_to_zero_one(resized_feature_map[i]), c="red")
-                ax[2].plot(
-                    normalize_to_zero_one(component_dict[attribute][i]),
-                    alpha=0.7,
-                    label=f"{attribute}",
-                )
-                ax[2].plot(
-                    normalize_to_zero_one(resized_feature_map[i]),
-                    c="red",
-                    label="feature map",
-                )
-                for j in range(len(ax)):
-                    ax[j].axvline(x=correlation_starttime, color="grey", linestyle="--")
-                    ax[j].axvline(x=correlation_endtime, color="grey", linestyle="--")
-                ax[2].text(
-                    x_pos,
-                    y_pos,
-                    f"correlation: {np.round(correlation, 2)}\nTLCC max correlation: {np.round(np.array(tlcc_values).max(),2)}",
-                    transform=ax[j].transAxes,
-                    fontsize=15,
-                    horizontalalignment="left",
-                    verticalalignment="top",
-                )
-                ax[0].set_title(
-                    f"EQ_ID: {key} {attribute}{i+1}, station_name:{input_station_list[i]}"
-                )
-                ax[1].set_ylabel("normalized acc")
-                ax[-1].set_xlabel("time sample")
-                ax[2].legend()
-
-                fig.savefig(
-                    f"{event_output_path}/{attribute}{i+1} with feature map.png", dpi=300
-                )
-                plt.close()
-                plt.clf()
-
-
-for atribute in attribute_dict:
+for attribute in attribute_dict:
     TLCC_mean = np.round(
-        np.array(attribute_dict[atribute]["tlcc_max_correlation"]).mean(), 2
+        np.array(attribute_dict[attribute]["tlcc_max_correlation"]).mean(), 2
     )
     TLCC_std = np.round(
-        np.array(attribute_dict[atribute]["tlcc_max_correlation"]).std(), 2
+        np.array(attribute_dict[attribute]["tlcc_max_correlation"]).std(), 2
     )
-    print(atribute)
-    print(f"mean:{TLCC_mean}, std: {TLCC_std}")
-    # hist
-    fig, ax = plt.subplots()
-    ax.hist(
-        np.array(attribute_dict[atribute]["tlcc_max_correlation"]),
-        bins=15,
-        edgecolor="k",
-    )
-    ax.set_xlabel("correlation", fontsize=12)
-    ax.set_ylabel("number of traces", fontsize=12)
-    ax.set_title(
-        f"Correlation (TLCC) of \n{mask_after_sec} sec {atribute}",
-        fontsize=15,
-    )
-    ax.text(
-        0.8,
-        0.8,
-        f"mean:{TLCC_mean}\nstd:{TLCC_std}",
-        transform=ax.transAxes,
-        fontsize=12,
-    )
-    fig.savefig(
-        f"{output_path}/{mask_after_sec} sec cnn feature map/correlation (TLCC) with {atribute} histogram.png",
-        dpi=300,
+    fig, ax = plot_correlation_hist(
+        attribute_dict, attribute, TLCC_mean, TLCC_std, mask_after_sec, output_path=None
     )
     # x: time sample lag, y: max correlation (TLCC)
-    fig, ax = plt.subplots()
-    ax.scatter(
-        attribute_dict[atribute]["max_delay"],
-        attribute_dict[atribute]["tlcc_max_correlation"],
-        alpha=0.5,
-        s=15,
-    )
-
-    ax.set_xlabel("time sample lag")
-    ax.set_ylabel("max Pearson correlation")
-    ax.set_title(
-        f"Correlation (TLCC) with delay time{mask_after_sec} sec \n{atribute}, mean :{TLCC_mean}, std: {TLCC_std}"
-    ,fontsize=15)
-    fig.savefig(
-        f"{output_path}/{mask_after_sec} sec cnn feature map/{mask_after_sec} sec {atribute} TLCC max correlation delay time.png",
-        dpi=300,
+    fig, ax = plot_time_shifted_with_correlation(
+        attribute_dict, attribute, TLCC_mean, TLCC_std, mask_after_sec, output_path=None
     )
     # max correlation time delay hist
-    delay_mean = np.round(np.array(attribute_dict[atribute]["max_delay"]).mean(), 2)
-    delay_std = np.round(np.array(attribute_dict[atribute]["max_delay"]).std(), 2)
-    fig, ax = plt.subplots()
-    ax.hist(attribute_dict[atribute]["max_delay"], bins=15, edgecolor="k")
-    ax.text(
-        0.75,
-        0.8,
-        f"mean:{delay_mean}\nstd:{delay_std}",
-        transform=ax.transAxes,
-        fontsize=12,
-    )
-    ax.set_xlabel("time sample lag", fontsize=12)
-    ax.set_ylabel("number of traces", fontsize=12)
-    ax.set_title(
-        f"{mask_after_sec} sec {atribute}\ndistribution of time delay with max correlation (TLCC)",
-        fontsize=15,
-    )
-    fig.savefig(
-        f"{output_path}/{mask_after_sec} sec cnn feature map/{mask_after_sec} sec {atribute} distribution of time delay with max correlation (TLCC).png",
-        dpi=300,
+    delay_mean = np.round(np.array(attribute_dict[attribute]["max_delay"]).mean(), 2)
+    delay_std = np.round(np.array(attribute_dict[attribute]["max_delay"]).std(), 2)
+    fig, ax = plot_time_shifted_with_hist(
+        attribute_dict,
+        attribute,
+        delay_mean,
+        delay_std,
+        mask_after_sec,
+        output_path=None,
     )
