@@ -1,5 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from cartopy.mpl import ticker
+import cartopy.crs as ccrs
+
 with open("vel3d.mod","r") as file:
     lines = file.readlines()
 
@@ -27,19 +30,28 @@ for i,line in enumerate(data):
     array.append([float(x) for x in elements])
 
 array=np.array(array)
-reshape_array=array.reshape(2,-1,114)
+reshape_array=array.reshape(2,27,61,76)#(model,depth,lat,lon)
+
 
 #plot velocity model
 X, Y = np.meshgrid(lon_coor, lat_coor)
 for model_index,model_name in enumerate(["Vp model","Vs model"]):
+    vmax=reshape_array[model_index,:,:].max()
+    vmin=reshape_array[model_index,:,:].min()
     for dep_index in range(0,len(dep_coor)):
-        fig,ax=plt.subplots()
-        cp = ax.contourf(X, Y, reshape_array[model_index,(73*dep_index):(73*(dep_index+1)),:])
-        cbar=fig.colorbar(cp)
-        cbar.set_label('Velocity (km/s)')
+        fig,ax=plt.subplots(subplot_kw={'projection': ccrs.PlateCarree()})
+        ax.coastlines()
+        cp = ax.contourf(X, Y, reshape_array[model_index,dep_index,:,:],transform=ccrs.PlateCarree())
+        xticks = ticker.LongitudeLocator(nbins=125-119)._raw_ticks(119, 125)
+        yticks = ticker.LatitudeLocator(nbins=26-20)._raw_ticks(20, 26)
+
+        ax.set_xticks(xticks, crs=ccrs.PlateCarree())
+        ax.set_yticks(yticks, crs=ccrs.PlateCarree())
+        cbar = fig.colorbar(cp)
+        cbar.set_label(f'{model_name[:2]} (km/s)')
         ax.set_xlabel("longitude")
         ax.set_ylabel("latitude")
-        ax.set_title(f"{model_name}, depth: {dep_coor[dep_index]}km")
+        ax.set_title(f"Depth: {dep_coor[dep_index]}km")
         fig.savefig(f"model_image/{model_name}_depth_{int(dep_coor[dep_index]*1000)}m.png",dpi=300)
 
 #origin 76 61 27
