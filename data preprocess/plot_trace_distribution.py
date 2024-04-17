@@ -24,7 +24,7 @@ for i in range(len(pga_threshold) - 1):
 ax.set_ylabel("number of trace")
 ax.set_xlabel("log(PGA (m/s2))")
 ax.set_title("TSMIP data PGA distribution")
-fig.savefig("./events_traces_catalog/pga distribution.png",dpi=300)
+# fig.savefig("./events_traces_catalog/pga distribution.png",dpi=300)
 
 fig, ax = plt.subplots(figsize=(7, 7))
 ax.hist(
@@ -39,4 +39,4 @@ ax.set_yscale("log")
 ax.set_ylabel("number of event")
 ax.set_xlabel("magnitude")
 ax.set_title("TSMIP data magnitude distribution")
-fig.savefig("./events_traces_catalog/magnitude distribution.png",dpi=300)
+# fig.savefig("./events_traces_catalog/magnitude distribution.png",dpi=300)
