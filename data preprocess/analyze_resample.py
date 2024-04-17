@@ -4,6 +4,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 from read_tsmip import read_tsmip, get_peak_value
 
+"""
+In our dataset, we have different sampling rate waveforms, most of the data is 200Hz.
+In this script, we checked the residual of PGA after resampling all of waveforms to 200Hz.
+"""
 
 target_sampling_rate = 200
 waveform_path = "../data/waveform"
