@@ -4,9 +4,11 @@ import pandas as pd
 
 from read_tsmip import *
 
+Afile_path = "../data/Afile"
+wavefrom_path = "../data/waveform"
 Events = []
 Traces = []
-for year in os.listdir("data/waveform/"):
+for year in os.listdir(f"{wavefrom_path}"):
     for month in [
         "01",
         "02",
@@ -21,11 +23,11 @@ for year in os.listdir("data/waveform/"):
         "11",
         "12",
     ]:
-        trace_path = f"data/waveform/{year}/{month}"
+        trace_path = f"{wavefrom_path}/{year}/{month}"
         trace_folder = os.listdir(trace_path)
 
         afile_name = f"{year}{month}A.DAT"
-        afile_path = f"data/Afile/{afile_name}"
+        afile_path = f"{Afile_path}/{afile_name}"
         events, traces = classify_event_trace(afile_path, afile_name, trace_folder)
         Events.extend(events)
         Traces.extend(traces)
@@ -37,7 +39,7 @@ for eq_id, event in enumerate(Events):
     event_dict_inlist.append(header_info)
 
 event_df = pd.DataFrame.from_dict(event_dict_inlist)
-event_df.to_csv("data/Afile/1991-2020 catalog.csv", index=False)
+# event_df.to_csv("{Afile_path}/1991-2020 catalog.csv", index=False)
 
 # Traces
 for i in range(len(Traces)):
@@ -51,4 +53,4 @@ trace_df = pd.DataFrame.from_dict(trace_info)
 # check traces belong to TSMIP:
 trace_df = trace_df[trace_df["station_name"].str.len() == 6]
 
-trace_df.to_csv("data/Afile/1991-2020 traces.csv", index=False)
+# trace_df.to_csv("{Afile_path}/1991-2020 traces.csv", index=False)

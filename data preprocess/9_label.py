@@ -1,9 +1,6 @@
 import pandas as pd
 import numpy as np
-import sys
-import os
 
-sys.path.append("..")
 from read_tsmip import read_tsmip, get_peak_value, get_integrated_stream
 
 # read traces catalog
@@ -57,7 +54,7 @@ for i in range(len(traces)):
     traces.loc[i, "pgv"] = pgv
     traces.loc[i, "pgv_time"] = pgv_time
 
-traces.to_csv(
-    f"./events_traces_catalog/{start_year}_{end_year}_picked_traces_p_arrival_abstime_labeled.csv",
-    index=False,
-)
+# traces.to_csv(
+#     f"./events_traces_catalog/{start_year}_{end_year}_picked_traces_p_arrival_abstime_labeled.csv",
+#     index=False,
+# )

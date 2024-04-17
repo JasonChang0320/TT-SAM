@@ -7,7 +7,7 @@ magnitude_thrshold = 5.5
 
 
 Afile_path = "../data/Afile"
-sta_path = "../data/station information"
+sta_path = "../data/station_information"
 traces = pd.read_csv(
     f"{Afile_path}/1991-2020 traces (no broken data, double event).csv"
 )

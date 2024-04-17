@@ -135,6 +135,6 @@ for i in range(start_index,len(traces)):
         traces.loc[i, "quality_control"] = "n"
         continue
 
-traces.to_csv(f"{output_path}/{traces_file_name}", index=False)
-error_file.to_csv(f"{output_path}/{error_file_name}", index=False)
+# traces.to_csv(f"{output_path}/{traces_file_name}", index=False)
+# error_file.to_csv(f"{output_path}/{error_file_name}", index=False)
 print("data saved")

@@ -23,9 +23,9 @@ include_intensity_4=ok_traces[intensity_filter]["EQ_ID"].unique().tolist()
 ok_traces_filter=(ok_traces["EQ_ID"].isin(include_intensity_4))
 ok_traces=ok_traces[ok_traces_filter]
 
-ok_traces.to_csv(f"events_traces_catalog/{start_year}_{end_year}_ok_traces.csv",index=False)
+# ok_traces.to_csv(f"events_traces_catalog/{start_year}_{end_year}_ok_traces.csv",index=False)
 
-
+#plot 歷時剔除後之震度分佈
 fig,ax=plt.subplots()
 ax.hist(traces["intensity"],bins=16,edgecolor="gray")
 ax.hist(ok_traces["intensity"],bins=16,edgecolor="gray")
@@ -34,8 +34,9 @@ plt.yscale("log")
 #上述問題在events也替除
 ok_event_filter=(events["EQ_ID"].isin(include_intensity_4))
 ok_events=events[ok_event_filter]
-ok_events.to_csv(f"events_traces_catalog/{start_year}_{end_year}_ok_events.csv",index=False)
+# ok_events.to_csv(f"events_traces_catalog/{start_year}_{end_year}_ok_events.csv",index=False)
 
+#plot 事件剔除後之震度分佈
 fig,ax=plt.subplots()
 ax.hist(events["magnitude"],bins=28,edgecolor="gray")
 ax.hist(ok_events["magnitude"],bins=28,edgecolor="gray")

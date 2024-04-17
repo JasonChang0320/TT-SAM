@@ -1,26 +1,29 @@
-import os
-
 import h5py
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
 from read_tsmip import cut_traces
-
-Afile_path = "data/Afile"
-sta_path = "data/station information"
-waveform_path = "data/waveform"
-catalog = pd.read_csv(f"{Afile_path}/final catalog (station exist)_filtered.csv")
+start_year = 1999
+end_year = 2019
+sta_path = "../data/station_information"
+waveform_path = "../data/waveform"
+catalog = pd.read_csv(
+    f"./events_traces_catalog/{start_year}_{end_year}_final_catalog.csv"
+)
 traces = pd.read_csv(
-    f"{Afile_path}/1991-2020 traces with picking and label_new (sta location exist)_filtered.csv"
+    f"./events_traces_catalog/{start_year}_{end_year}_final_traces_Vs30.csv"
 )
-station_info = pd.read_csv(f"{sta_path}/TSMIPstations_new.csv")
-traces.loc[traces.index, "p_picks (sec)"] = pd.to_timedelta(traces["p_picks (sec)"])
-traces.loc[traces.index, "start_time"] = pd.to_datetime(
-    traces["start_time"], format="%Y-%m-%d %H:%M:%S"
+station_info = pd.read_csv(f"{sta_path}/TSMIPstations_new.csv") 
+traces.loc[traces.index, "p_pick_sec"] = pd.to_timedelta(
+    traces["p_pick_sec"], unit="sec"
+)
+traces.loc[traces.index, "p_arrival_abs_time"] = pd.to_datetime(
+    traces["p_arrival_abs_time"], format="%Y-%m-%d %H:%M:%S"
 )
 
-output = "data/TSMIP_filtered.hdf5"
+# into hdf5
+output = f"../data/TSMIP_{start_year}_{end_year}_Vs30.hdf5"
 error_event = {"EQ_ID": [], "reason": []}
 with h5py.File(output, "w") as file:
     data = file.create_group("data")
@@ -39,7 +42,7 @@ with h5py.File(output, "w") as file:
             start_time_str_arr = np.array(traces_info["start_time"], dtype="S30")
             station_name_str_arr = np.array(tmp_traces["station_name"], dtype="S30")
             tmp_station_info = pd.merge(
-                tmp_traces["station_name"],
+                tmp_traces[["station_name","Vs30"]],
                 station_info[
                     ["location_code", "latitude", "longitude", "elevation (m)"]
                 ],
@@ -50,6 +53,7 @@ with h5py.File(output, "w") as file:
             location_array = np.array(
                 tmp_station_info[["latitude", "longitude", "elevation (m)"]]
             )
+            Vs30_array=np.array(tmp_traces["Vs30"])
             if np.isnan(location_array).any():
                 print("The location array contain NaN values")
                 continue
@@ -81,6 +85,9 @@ with h5py.File(output, "w") as file:
             event.create_dataset(
                 "station_location", data=location_array, dtype=np.float64
             )
+            event.create_dataset(
+                "Vs30", data=Vs30_array, dtype=np.float64
+            )
         except Exception as reason:
             print(f"EQ_ID:{eq_id}, {reason}")
             error_event["EQ_ID"].append(eq_id)
@@ -88,7 +95,9 @@ with h5py.File(output, "w") as file:
             continue
         # fig.savefig(f"data/cutting waveform image/{eq_id}.png")
     error_event_df = pd.DataFrame(error_event)
-    error_event_df.to_csv("data/load into hdf5 error event.csv", index=False)
+    error_event_df.to_csv(
+        "./events_traces_catalog/load into hdf5 error event.csv", index=False
+    )
 
 catalog.to_hdf(output, key="metadata/event_metadata", mode="a", format="table")
 traces.to_hdf(output, key="metadata/traces_metadata", mode="a", format="table")
