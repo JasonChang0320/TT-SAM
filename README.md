@@ -1,43 +1,29 @@
-# TEAM_Taiwan
-This project is still in development status. We will update as soon as possible.
+# Taiwan Transformer Shaking Alert Model (TT-SAM)
 
-This is a deep learning model trying to implement EEW systems in Taiwan, data is contributed from TSMIP.
+This study has referenced the Transformer Earthquake Alerting Model (TEAM), a deep learning earthquake early warning (EEW) framework. We optimized the model using seismic data from Taiwan to develop the Taiwan Transformer Shaking Alert Model (TT-SAM), and it could rapidly calculate the seismic intensity to provide longer warning time.
 
-Model architecture include CNN, Transformer Encoder, Mixture Density Model
 
-Reference: Münchmeyer et al.,2021 (https://academic.oup.com/gji/article/225/1/646/6047414)
-## data preprocess
+## Data Preprocess
 
-`read_tsmip.py`: functions of read file, picking, label
-
-`afile.py`: classify events and records to csv file
-
-`station location dataset.py`: merge TSMIP station locations
-
-`catalog, records cleaning.py`: data cleaning (broken data, double events etc.)
-
-`picking,label.py`: main files to picking and label(PGA or PGV)
-
-`traces cutting.py`: summarize catalog and waveforms to hdf5 file
-
-## Training model
-
-`CNN_Transformer_Mixtureoutput_TEAM.py`: model architecture
-
-`multiple_sta_dataset.py`: the class of pytorch dataset
-
-`multi-station training.py`: main training file
-
-## Prediction
-
-`predict_new.py` `confusion matrix multi station.py` `plot_predict_map.py` `intensity map.py`
-
-Calculate precision, recall, F1 score and calculate warthquake warning time
+![image](data_preprocess/images/workflow.png)
 
 ## Model architecture
-![image](prediction_images_in_readme/TEAM-Taiwan_model_architecture.png)
+![image](images/TEAM-Taiwan_model_architecture.png)
 
-## Model performance
+## Model Performance
 
-![image](prediction_images_in_readme/24784_mag_6.6_5sec_PGA_intensity_Map.png)
-![image](prediction_images_in_readme/25396_mag_6.1_5sec_PGA_intensity_Map.png)
+We use 2016 seismic data to evaluate model performance.
+
+Seismic intensity threshold is from Central Weather Administration.
+
+Background color represents model predicted intensity.
+
+### 2016 Meinong Earthquake
+
+![image](images/Meinong_event.gif)
+
+### 2016 Taitung Offshore Earthquake
+![image](images/Taitung_offshore_event.gif)
+
+## Reference
+Münchmeyer et al.,2021 (https://academic.oup.com/gji/article/225/1/646/6047414)
