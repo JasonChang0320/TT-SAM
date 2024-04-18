@@ -4,32 +4,7 @@ import h5py
 import numpy as np
 import pandas as pd
 import torch
-from numpy import ma
-from scipy.signal import butter, lfilter
-from torch.utils.data import DataLoader, Dataset, Subset, Sampler
-
-
-def butter_lowpass(cutoff, fs, order=5):
-    return butter(order, cutoff, fs=fs, btype="low", analog=False)
-
-
-def butter_lowpass_filter(data, cutoff, fs, order=5):
-    b, a = butter_lowpass(cutoff, fs, order=order)
-    y = lfilter(b, a, data)
-    return y
-
-
-def shift_waveform(waveform, p_pick, start_before_sec=5, total_sec=30, sample_rate=200):
-    start_point = p_pick - start_before_sec * sample_rate
-    cut_waveform = waveform[start_point:, :]
-    padded_waveform = np.pad(
-        cut_waveform,
-        ((0, total_sec * sample_rate - len(cut_waveform)), (0, 0)),
-        "constant",
-    )
-    # ((top, bottom), (left, right))
-
-    return padded_waveform
+from torch.utils.data import Dataset, Subset, Sampler
 
 
 class intensity_classifier:
@@ -300,7 +275,9 @@ class multiple_station_dataset(Dataset):
                 if weight_label:
                     single_event_label_weight = single_event_label_weight[sort]
             if len(single_event_index) > max_station_num:
-                time = int(np.ceil(len(single_event_index) / max_station_num))  # 無條件進位
+                time = int(
+                    np.ceil(len(single_event_index) / max_station_num)
+                )  # 無條件進位
                 # np.array_split(single_event_index, 25)
                 splited_index = np.array_split(
                     single_event_index,
@@ -829,62 +806,3 @@ class CustomSubset(Subset):
 
     def __len__(self):
         return len(self.indices)
-
-
-# origin_data = multiple_station_dataset_new(
-#     "D:/TEAM_TSMIP/data/TSMIP_filtered.hdf5",
-#     mode="train",
-#     mask_waveform_sec=3,
-#     oversample=1,
-#     oversample_mag=4,
-#     input_type="acc",
-#     label_key="pgv",
-#     weight_label=True,
-# )
-# train_set_size = int(len(origin_data) * 0.8)
-# valid_set_size = len(origin_data) - train_set_size
-# indice=np.arange(len(origin_data))
-# np.random.seed(0)
-# np.random.shuffle(indice)
-# train_indice,test_indice=np.array_split(indice,[train_set_size])
-# train_dataset=CustomSubset(origin_data,train_indice)
-# val_dataset=CustomSubset(origin_data,test_indice)
-# from torch.utils.data import WeightedRandomSampler
-
-# train_sampler=WeightedRandomSampler(weights=train_dataset.weight,num_samples=len(train_dataset),replacement=True)
-# train_loader=DataLoader(dataset=train_dataset,batch_size=16,
-#                                 sampler=train_sampler,shuffle=False,drop_last=True)
-
-# batch_size=16
-# loader=DataLoader(dataset=origin_data,batch_size=batch_size,shuffle=True)
-# a=0
-# for sample in origin_data[850]:
-# # import matplotlib.pyplot as plt
-#     fig,ax=plt.subplots(13,1,figsize=(14,14))
-#     for i in range(13):
-#         ax[i].plot(origin_data[15276][0][i,:,: ])
-#         fig.savefig(f"data/dataset output/{15276}_vel.png")
-#         plt.close()
-#     a+=1
-#     if a>150:
-#         break
-
-# full_data = multiple_station_dataset_outputs(
-#     "D:/TEAM_TSMIP/data/TSMIP_filtered.hdf5",
-#     mode="train",
-#     mask_waveform_sec=3,
-#     weight_label=False,
-#     oversample=1,
-#     test_year=2016,
-#     mask_waveform_random=True,
-#     label_keys=["pga"],
-#     input_type=["acc","vel"],
-#     data_length_sec=10
-# )
-
-# train_loader=DataLoader(dataset=full_data,batch_size=6,drop_last=True)
-
-# from tqdm import tqdm
-# for sample in tqdm(train_loader):
-#     print(sample["acc"].shape)
-#     print(sample["vel"].shape)

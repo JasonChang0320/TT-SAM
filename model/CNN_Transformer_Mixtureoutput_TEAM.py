@@ -1,10 +1,6 @@
-import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.nn as nn
-from scipy import stats
-from torch.autograd import Variable
-from torchsummary import summary
 
 
 class LambdaLayer(nn.Module):
@@ -55,12 +51,7 @@ class MLP(nn.Module):
         return output
 
 
-# model = MLP((5665,),dims=(100,50)).cuda()
-# summary(model,(5665,))
-
-
-# #input_shape -> BatchSize, Channels, Height, Width
-class CNN(nn.Module):
+class CNN(nn.Module):  # input_shape -> BatchSize, Channels, Height, Width
     def __init__(
         self,
         input_shape=(-1, 6000, 3),
@@ -146,7 +137,8 @@ class CNN(nn.Module):
 
         return output
 
-class CNN_feature_map(nn.Module):
+
+class CNN_feature_map(nn.Module):  # get cnn feature map to explain feature extraction
     def __init__(
         self,
         input_shape=(-1, 6000, 3),
@@ -202,7 +194,7 @@ class CNN_feature_map(nn.Module):
         self.mlp = MLP((self.mlp_input,), dims=self.mlp_dims)
 
     def forward(self, x):
-        layer_output=[]
+        layer_output = []
         # print("intitial shape", x.size())
         output = self.lambda_layer_1(x)
         output = self.unsqueeze_layer1(output)
@@ -238,17 +230,17 @@ class CNN_feature_map(nn.Module):
         output = self.mlp(output)
         # print("output:", output.size())
 
-        return output,layer_output
-
-# model = CNN(mlp_input=3665).cuda()
-# CNN_input = torch.Tensor(np.random.rand(18000)*100).reshape(-1, 2000, 3).cuda()
-# model(CNN_input)
-# summary(model, (3000, 3))
+        return output, layer_output
 
 
-class PositionEmbedding(nn.Module):  # paper page11 B.2
+class PositionEmbedding(
+    nn.Module
+):  # embed station location (latitude, longitude, elevation) to vector
     def __init__(
-        self, wavelengths=((5, 30), (110, 123), (0.01, 5000)), emb_dim=500, **kwargs
+        self,
+        wavelengths=((5, 30), (110, 123), (0.01, 5000)),
+        emb_dim=500,
+        **kwargs
         # self, wavelengths=((21, 26), (119, 123), (0.01, 4000)), emb_dim=500, **kwargs
     ):
         super(PositionEmbedding, self).__init__(**kwargs)
@@ -337,271 +329,14 @@ class PositionEmbedding(nn.Module):  # paper page11 B.2
         return output
 
 
-class Element_Wise(nn.Module):  # paper page11 B.2
+class PositionEmbedding_Vs30(
+    nn.Module
+):  # embed station location (latitude, longitude, elevation, Vs30) to vector
     def __init__(
         self,
-        waveforms_emb=torch.arange(1500).reshape(3, 1, 500),
-    ):
-        super(Element_Wise, self).__init__()
-        self.waveforms_emb = waveforms_emb
-
-    def forward(self, x):  # x = coords_emb
-        emb = torch.add(self.waveforms_emb, x)
-
-        return emb
-
-
-class test:
-    def __init__(self, d_model, dropout):
-        self.dropout = dropout
-        self.d_model = d_model
-
-    def forward(self, x):
-        x = x + self.dropout
-        return x
-
-
-test(5, 6).forward(1)
-
-# posi_dim = 500
-# coords_emb = PositionEmbedding(emb_dim=150).cuda()
-# station_position=torch.DoubleTensor([22.5,119,20]).reshape(-1, 1, 3).float().cuda()
-# Element_Wise_output = Element_Wise(waveforms_emb=CNN_output)(coords_emb).cuda()
-# print("Element_Wise_output: ", Element_Wise_output.shape)
-
-
-class TransformerEncoder(nn.Module):
-    def __init__(
-        self,
-        d_model=150,
-        nhead=10,
-        batch_first=True,
-        activation="gelu",
-        dropout=0.0,
-        dim_feedforward=1000,
-    ):
-        super(TransformerEncoder, self).__init__()
-
-        self.encoder_layer = nn.TransformerEncoderLayer(
-            d_model=d_model,
-            nhead=nhead,
-            batch_first=batch_first,
-            activation=activation,
-            dropout=dropout,
-            dim_feedforward=dim_feedforward,
-        ).cuda()
-        self.transformer_encoder = nn.TransformerEncoder(self.encoder_layer, 6).cuda()
-
-    def forward(self, x, src_key_padding_mask=None):
-        out = self.transformer_encoder(x, src_key_padding_mask=src_key_padding_mask)
-        # out = out.view(out.size(0), -1)
-        return out
-
-
-# model=TransformerEncoder()
-# a=torch.rand(32, 40, 150).cuda()
-# model(a).shape
-
-
-# batch_size = 3
-# dim_input = 500
-# src = torch.rand(batch_size, 1, dim_input).cuda()  # input data
-# Transformer_output = TransformerEncoder().forward(PositionalEncoding_output).cuda()
-# print("Transformer_output: ", Transformer_output.shape)
-class MDN(nn.Module):
-    def __init__(self, input_shape=(150,), n_hidden=20, n_gaussians=5):
-        super(MDN, self).__init__()
-        self.z_h = nn.Sequential(nn.Linear(input_shape[0], n_hidden), nn.Tanh())
-        self.z_weight = nn.Linear(n_hidden, n_gaussians)
-        self.z_sigma = nn.Linear(n_hidden, n_gaussians)
-        self.z_mu = nn.Linear(n_hidden, n_gaussians)
-
-    def forward(self, x):
-        z_h = self.z_h(x)
-        weight = nn.functional.softmax(self.z_weight(z_h), -1)
-        sigma = torch.exp(self.z_sigma(z_h))
-        mu = self.z_mu(z_h)
-        return weight, sigma, mu
-
-
-def gaussian_distribution(y, mu, sigma):
-    # make |mu|=K copies of y, subtract mu, divide by sigma
-    oneDivSqrtTwoPI = 1.0 / np.sqrt(2.0 * np.pi)  # normalization factor for Gaussians
-    result = (y.expand_as(mu) - mu) * torch.reciprocal(sigma)
-    result = -0.5 * (result * result)
-    return (torch.exp(result) * torch.reciprocal(sigma)) * oneDivSqrtTwoPI
-
-
-def mdn_loss_fn(pi, sigma, mu, y):
-    result = gaussian_distribution(y, mu, sigma) * pi
-    # print(result.shape)
-    result = torch.sum(result, dim=1)
-    # print(result.shape)
-    result = -torch.log(result)
-    return torch.mean(result)
-
-
-class full_model(nn.Module):
-    def __init__(
-        self,
-        model_CNN,
-        model_Position,
-        model_Transformer,
-        model_mlp,
-        model_MDN,
-        max_station=25,
-        pga_targets=15,
-        emb_dim=150,
-        data_length=6000,
-    ):
-        super(full_model, self).__init__()
-        self.data_length = data_length
-        self.model_CNN = model_CNN
-        self.model_Position = model_Position
-        self.model_Transformer = model_Transformer
-        self.model_mlp = model_mlp
-        self.model_MDN = model_MDN
-        self.max_station = max_station
-        self.pga_targets = pga_targets
-        self.emb_dim = emb_dim
-
-    def forward(self, data):
-        CNN_output = self.model_CNN(
-            torch.DoubleTensor(data["waveform"].reshape(-1, self.data_length, 3))
-            .float()
-            .cuda()
-        )
-        CNN_output_reshape = torch.reshape(
-            CNN_output, (-1, self.max_station, self.emb_dim)
-        )
-        emb_output = self.model_Position(
-            torch.DoubleTensor(data["sta"].reshape(-1, 1, data["sta"].shape[2])).float().cuda()
-        )
-        emb_output = emb_output.reshape(-1, self.max_station, self.emb_dim)
-        # data[1] 做一個padding mask [batchsize, station number (25)], value: True, False (True: should mask)
-        station_pad_mask = data["sta"] == 0
-        station_pad_mask = torch.all(station_pad_mask, 2)
-
-        pga_pos_emb_output = self.model_Position(
-            torch.DoubleTensor(data["target"].reshape(-1, 1, data["target"].shape[2])).float().cuda()
-        )
-        pga_pos_emb_output = pga_pos_emb_output.reshape(
-            -1, self.pga_targets, self.emb_dim
-        )
-        # data["target"] 做一個padding mask [batchsize, PGA_target (15)], value: True, False (True: should mask)
-        target_pad_mask = torch.ones_like(
-            data["target"], dtype=torch.bool
-        )  # 避免 target position 在self-attention互相影響結果
-        # target_pad_mask= data[2] ==0
-        target_pad_mask = torch.all(target_pad_mask, 2)
-
-        # concat two mask, [batchsize, station_number+PGA_target (40)], value: True, False (True: should mask)
-        pad_mask = torch.cat((station_pad_mask, target_pad_mask), dim=1).cuda()
-
-        add_PE_CNNoutput = torch.add(CNN_output_reshape, emb_output)
-        transformer_input = torch.cat((add_PE_CNNoutput, pga_pos_emb_output), dim=1)
-        transformer_output = self.model_Transformer(transformer_input, pad_mask)
-
-        mlp_input = transformer_output[:, -self.pga_targets :, :].cuda()
-
-        mlp_output = self.model_mlp(mlp_input)
-
-        weight, sigma, mu = self.model_MDN(mlp_output)
-
-        return weight, sigma, mu
-
-
-class MixtureOutput(nn.Module):
-    def __init__(self, input_shape=None, n=4, d=1, activation=nn.ReLU(), eps=1e-4):
-        super(MixtureOutput, self).__init__()
-        self.activation = activation
-        self.n = n
-        self.d = d
-        self.eps = eps
-        self.alpha_layer = nn.Linear(input_shape[0], self.n * self.d)
-        self.mu_layer = nn.Linear(input_shape[0], self.n * self.d)
-        self.sigma_layer = nn.Linear(input_shape[0], self.n * self.d)
-
-    def forward(self, x):
-        x = torch.flatten(x)  # not sure 硬加的
-        alpha = self.alpha_layer(x)
-        alpha = self.activation(alpha)
-        print(alpha.shape)
-        alpha = torch.reshape(alpha, (self.n, self.d))
-        print(alpha.shape)
-        mu = self.mu_layer(x)
-        mu = self.activation(mu)
-        mu = torch.reshape(mu, (self.n, self.d))
-        print(mu.shape)
-        sigma = self.sigma_layer(x)
-        sigma = LambdaLayer(lambda x: x, self.eps)(
-            sigma
-        )  # Add epsilon to avoid division by 0
-        sigma = torch.reshape(sigma, (self.n, self.d))
-        print(sigma.shape)
-        out = torch.cat([alpha, mu, sigma], dim=1)
-
-        return out
-
-
-# # bbb = torch.arange(10).reshape(1, 10)
-# # bbb = bbb.type(torch.FloatTensor)
-# MixtureOutput_model = MixtureOutput((500,), n=5, d=1).cuda()
-# print(MixtureOutput_model)
-# MixtureOutput_output = MixtureOutput_model(Transformer_output[0, :, :])
-# print("MixtureOutput_output: ", MixtureOutput_output.shape)
-
-
-# y_pred = MixtureOutput_output(全部測站的)
-def mixture_density_loss(y_true, y_pred, eps=1e-6, d=1, mean=True, print_shapes=True):
-    if print_shapes:
-        print(f"True: {y_true.shape}")
-        print(f"Pred: {y_pred.shape}")
-    alpha = y_pred[:, :, 0]
-    density = torch.ones_like(
-        y_pred[:, :, 0]
-    )  # Create an array of ones of correct size
-    for j in range(d):
-        mu = y_pred[:, :, j + 1]
-        sigma = y_pred[:, :, j + 1 + d]
-        sigma = torch.maximum(sigma, eps)
-        density *= (
-            1
-            / (np.sqrt(2 * np.pi) * sigma)
-            * torch.exp(-((y_true[:, j] - mu) ** 2) / (2 * sigma**2))
-        )
-    density *= alpha
-    density = torch.sum(density, dim=1)
-    density += eps
-    loss = -torch.log(density)
-
-    if mean:
-        return torch.mean(loss)
-    else:
-        return loss
-
-
-def concate_mixture_output(data):
-    x = np.linspace(-7, 1, 100)
-    for station in range(data.shape[0]):
-        mix_model = np.zeros(100)
-        for i in range(data.shape[1]):
-            weight = data[station, i, 0]
-            mu = data[station, i, 1]
-            sigma = data[station, i, 2]
-
-            pdf = weight * stats.norm.pdf(x, mu, sigma)
-            mix_model += pdf
-            plt.plot(x, pdf, color="grey", alpha=0.2)
-        plt.plot(x, mix_model, color="red")
-        plt.show()
-
-
-# x = np.linspace(-7,7, 100)
-# plt.plot(x, stats.norm.pdf(x,2,2),'r-', lw=5, alpha=0.6, label='norm pdf')
-class PositionEmbedding_Vs30(nn.Module):  # paper page11 B.2
-    def __init__(
-        self, wavelengths=((5, 30), (110, 123), (0.01, 5000), (100,1600)), emb_dim=500, **kwargs
+        wavelengths=((5, 30), (110, 123), (0.01, 5000), (100, 1600)),
+        emb_dim=500,
+        **kwargs
         # self, wavelengths=((21, 26), (119, 123), (0.01, 4000)), emb_dim=500, **kwargs
     ):
         super(PositionEmbedding_Vs30, self).__init__(**kwargs)
@@ -617,7 +352,7 @@ class PositionEmbedding_Vs30(nn.Module):  # paper page11 B.2
         lat_dim = emb_dim // 5
         lon_dim = emb_dim // 5
         depth_dim = emb_dim // 10
-        vs30_dim= emb_dim// 10
+        vs30_dim = emb_dim // 10
 
         self.lat_coeff = (
             2
@@ -656,8 +391,8 @@ class PositionEmbedding_Vs30(nn.Module):  # paper page11 B.2
         lon_cos_mask = np.arange(emb_dim) % 5 == 3
         depth_sin_mask = np.arange(emb_dim) % 10 == 4
         depth_cos_mask = np.arange(emb_dim) % 10 == 9
-        vs30_sin_mask=np.arange(emb_dim) % 10 == 5
-        vs30_cos_mask=np.arange(emb_dim) % 10 == 8
+        vs30_sin_mask = np.arange(emb_dim) % 10 == 5
+        vs30_cos_mask = np.arange(emb_dim) % 10 == 8
 
         self.mask = np.zeros(emb_dim)
         self.mask[lat_sin_mask] = np.arange(lat_dim)
@@ -669,11 +404,11 @@ class PositionEmbedding_Vs30(nn.Module):  # paper page11 B.2
         self.mask[depth_cos_mask] = (
             2 * lat_dim + 2 * lon_dim + depth_dim + np.arange(depth_dim)
         )
-        self.mask[vs30_sin_mask]=(
-            2 * lat_dim + 2 * lon_dim + 2*depth_dim + np.arange(vs30_dim)
+        self.mask[vs30_sin_mask] = (
+            2 * lat_dim + 2 * lon_dim + 2 * depth_dim + np.arange(vs30_dim)
         )
-        self.mask[vs30_cos_mask]=(
-            2 * lat_dim + 2 * lon_dim + 2*depth_dim +vs30_dim + np.arange(vs30_dim)
+        self.mask[vs30_cos_mask] = (
+            2 * lat_dim + 2 * lon_dim + 2 * depth_dim + vs30_dim + np.arange(vs30_dim)
         )
         self.mask = self.mask.astype("int32")
 
@@ -683,7 +418,7 @@ class PositionEmbedding_Vs30(nn.Module):  # paper page11 B.2
         )  # 這裡沒用到cuda!!
         lon_base = x[:, :, 1:2].cuda() * torch.Tensor(self.lon_coeff).cuda()
         depth_base = x[:, :, 2:3].cuda() * torch.Tensor(self.depth_coeff).cuda()
-        vs30_base= x[:,:,3:4]* torch.Tensor(self.vs30_coeff).cuda()
+        vs30_base = x[:, :, 3:4] * torch.Tensor(self.vs30_coeff).cuda()
         # print(self.lat_coeff.shape)
         # print(x[:, :, 0:1].shape, 888)
         # print(lat_base.shape, "555")
@@ -696,7 +431,7 @@ class PositionEmbedding_Vs30(nn.Module):  # paper page11 B.2
                 torch.sin(depth_base),
                 torch.cos(depth_base),
                 torch.sin(vs30_base),
-                torch.cos(vs30_base)
+                torch.cos(vs30_base),
             ],
             dim=-1,
         )
@@ -708,8 +443,136 @@ class PositionEmbedding_Vs30(nn.Module):  # paper page11 B.2
         )
         output = torch.gather(output, -1, index).cuda()
         return output
-    
-# emb_dim=150
-# coords_emb = PositionEmbedding_Vs30(emb_dim=emb_dim).cuda()
-# station_position=torch.DoubleTensor([22.5,119,20,500]).reshape(-1, 1, 4).float().cuda()
-# coords_emb(station_position)
+
+
+class TransformerEncoder(nn.Module):
+    def __init__(
+        self,
+        d_model=150,
+        nhead=10,
+        batch_first=True,
+        activation="gelu",
+        dropout=0.0,
+        dim_feedforward=1000,
+    ):
+        super(TransformerEncoder, self).__init__()
+
+        self.encoder_layer = nn.TransformerEncoderLayer(
+            d_model=d_model,
+            nhead=nhead,
+            batch_first=batch_first,
+            activation=activation,
+            dropout=dropout,
+            dim_feedforward=dim_feedforward,
+        ).cuda()
+        self.transformer_encoder = nn.TransformerEncoder(self.encoder_layer, 6).cuda()
+
+    def forward(self, x, src_key_padding_mask=None):
+        out = self.transformer_encoder(x, src_key_padding_mask=src_key_padding_mask)
+        # out = out.view(out.size(0), -1)
+        return out
+
+
+class MDN(nn.Module):
+    def __init__(self, input_shape=(150,), n_hidden=20, n_gaussians=5):
+        super(MDN, self).__init__()
+        self.z_h = nn.Sequential(nn.Linear(input_shape[0], n_hidden), nn.Tanh())
+        self.z_weight = nn.Linear(n_hidden, n_gaussians)
+        self.z_sigma = nn.Linear(n_hidden, n_gaussians)
+        self.z_mu = nn.Linear(n_hidden, n_gaussians)
+
+    def forward(self, x):
+        z_h = self.z_h(x)
+        weight = nn.functional.softmax(self.z_weight(z_h), -1)
+        sigma = torch.exp(self.z_sigma(z_h))
+        mu = self.z_mu(z_h)
+        return weight, sigma, mu
+
+
+class full_model(nn.Module):
+    def __init__(
+        self,
+        model_CNN,
+        model_Position,
+        model_Transformer,
+        model_mlp,
+        model_MDN,
+        max_station=25,
+        pga_targets=15,
+        emb_dim=150,
+        data_length=6000,
+    ):
+        super(full_model, self).__init__()
+        self.data_length = data_length
+        self.model_CNN = model_CNN
+        self.model_Position = model_Position
+        self.model_Transformer = model_Transformer
+        self.model_mlp = model_mlp
+        self.model_MDN = model_MDN
+        self.max_station = max_station
+        self.pga_targets = pga_targets
+        self.emb_dim = emb_dim
+
+    def forward(self, data):
+        CNN_output = self.model_CNN(
+            torch.DoubleTensor(data["waveform"].reshape(-1, self.data_length, 3))
+            .float()
+            .cuda()
+        )
+        CNN_output_reshape = torch.reshape(
+            CNN_output, (-1, self.max_station, self.emb_dim)
+        )
+        emb_output = self.model_Position(
+            torch.DoubleTensor(data["sta"].reshape(-1, 1, data["sta"].shape[2]))
+            .float()
+            .cuda()
+        )
+        emb_output = emb_output.reshape(-1, self.max_station, self.emb_dim)
+        # data[1] 做一個padding mask [batchsize, station number (25)], value: True, False (True: should mask)
+        station_pad_mask = data["sta"] == 0
+        station_pad_mask = torch.all(station_pad_mask, 2)
+
+        pga_pos_emb_output = self.model_Position(
+            torch.DoubleTensor(data["target"].reshape(-1, 1, data["target"].shape[2]))
+            .float()
+            .cuda()
+        )
+        pga_pos_emb_output = pga_pos_emb_output.reshape(
+            -1, self.pga_targets, self.emb_dim
+        )
+        # data["target"] 做一個padding mask [batchsize, PGA_target (15)], value: True, False (True: should mask)
+        # 避免 target position 在self-attention互相影響結果
+        target_pad_mask = torch.ones_like(data["target"], dtype=torch.bool)
+        target_pad_mask = torch.all(target_pad_mask, 2)
+
+        # concat two mask, [batchsize, station_number+PGA_target (40)], value: True, False (True: should mask)
+        pad_mask = torch.cat((station_pad_mask, target_pad_mask), dim=1).cuda()
+
+        add_PE_CNNoutput = torch.add(CNN_output_reshape, emb_output)
+        transformer_input = torch.cat((add_PE_CNNoutput, pga_pos_emb_output), dim=1)
+        transformer_output = self.model_Transformer(transformer_input, pad_mask)
+
+        mlp_input = transformer_output[:, -self.pga_targets :, :].cuda()
+
+        mlp_output = self.model_mlp(mlp_input)
+
+        weight, sigma, mu = self.model_MDN(mlp_output)
+
+        return weight, sigma, mu
+
+
+def gaussian_distribution(y, mu, sigma):
+    # make |mu|=K copies of y, subtract mu, divide by sigma
+    oneDivSqrtTwoPI = 1.0 / np.sqrt(2.0 * np.pi)  # normalization factor for Gaussians
+    result = (y.expand_as(mu) - mu) * torch.reciprocal(sigma)
+    result = -0.5 * (result * result)
+    return (torch.exp(result) * torch.reciprocal(sigma)) * oneDivSqrtTwoPI
+
+
+def mdn_loss_fn(pi, sigma, mu, y):
+    result = gaussian_distribution(y, mu, sigma) * pi
+    # print(result.shape)
+    result = torch.sum(result, dim=1)
+    # print(result.shape)
+    result = -torch.log(result)
+    return torch.mean(result)

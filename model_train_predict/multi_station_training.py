@@ -1,25 +1,33 @@
 import pickle
 import os
 import mlflow.pytorch
-import numpy as np
 import torch
 import torch.nn as nn
 from mlflow import log_artifact, log_metrics, log_param, log_params
 from torch.backends import cudnn
-from torch.utils.data import DataLoader, WeightedRandomSampler, random_split
+from torch.utils.data import DataLoader, random_split
 from tqdm import tqdm
+import sys
 
-from CNN_Transformer_Mixtureoutput_TEAM import (
+sys.path.append("..")
+from model.CNN_Transformer_Mixtureoutput_TEAM import (
     CNN,
     MDN,
     MLP,
-    PositionEmbedding,
+    PositionEmbedding_Vs30,  # if you don't have vs30 data, please use "PositionEmbedding"
     TransformerEncoder,
     full_model,
-    PositionEmbedding_Vs30,
 )
-from multiple_sta_dataset import CustomSubset, multiple_station_dataset
+from multiple_sta_dataset import multiple_station_dataset
 
+"""
+set up mlflow experiment:
+In Terminal, you need to type
+"mlflow ui"
+
+enter to UI at local host
+create an experiment, its name: "bias to close station"
+"""
 
 def train_process(
     full_Model,
@@ -46,8 +54,6 @@ def train_process(
         use_cuda = torch.cuda.is_available()
         device = torch.device("cuda:0" if use_cuda else "cpu")
         cudnn.benchmark = True
-        # full_data=multiple_station_dataset("D:/TEAM_TSMIP/data/TSMIP_new.hdf5",train_mode=True,oversample=1.5,
-        #                                         mask_waveform_sec=3,test_year=2018)
 
         train_set_size = int(len(full_data) * train_data_size)
         valid_set_size = len(full_data) - train_set_size
@@ -72,36 +78,6 @@ def train_process(
             num_workers=5,
             drop_last=True,
         )
-        # for pgv training
-        # indice = np.arange(len(full_data))
-        # np.random.seed(0)
-        # np.random.shuffle(indice)
-        # train_indice, valid_indice = np.array_split(indice, [train_set_size])
-        # train_dataset = CustomSubset(full_data, train_indice)
-        # val_dataset = CustomSubset(full_data, valid_indice)
-
-        # train_sampler = WeightedRandomSampler(
-        #     weights=train_dataset.weight,
-        #     num_samples=len(train_dataset),
-        #     replacement=True,
-        # )
-        # train_loader = DataLoader(
-        #     dataset=train_dataset,
-        #     batch_size=hyper_param["batch_size"],
-        #     sampler=train_sampler,
-        #     shuffle=False,
-        #     pin_memory=True,
-        #     num_workers=5,
-        #     drop_last=True,
-        # )
-        # valid_loader = DataLoader(
-        #     dataset=val_dataset,
-        #     batch_size=hyper_param["batch_size"],
-        #     shuffle=True,
-        #     pin_memory=True,
-        #     num_workers=5,
-        #     drop_last=True,
-        # )
 
         gaussian_loss = nn.GaussianNLLLoss(reduction="none")
         training_loss = []
@@ -117,7 +93,7 @@ def train_process(
         for epoch in range(hyper_param["num_epochs"]):
             print(f"Epoch:{epoch+1}")
             print("--------------------train_start--------------------")
-            for sample in tqdm(train_loader):
+            for sample in tqdm(train_loader):  # training
                 optimizer.zero_grad()
                 weight, sigma, mu = full_Model(sample)
                 pga_label = (
@@ -135,8 +111,6 @@ def train_process(
                     -1, num_of_gaussian
                 )
                 mu_masked = torch.masked_select(mu, mask).reshape(-1, num_of_gaussian)
-                # print("pga",pga_label_masked),print("w",weight_masked),print("s",sigma_masked),print("mu",mu_masked)
-                # train_loss = mdn_loss_fn(weight_masked, sigma_masked, mu_masked, pga_label_masked).cuda()
                 train_loss = torch.mean(
                     torch.sum(
                         weight_masked
@@ -149,7 +123,7 @@ def train_process(
             print("train_loss", train_loss)
             training_loss.append(train_loss.data)
 
-            for sample in tqdm(valid_loader):
+            for sample in tqdm(valid_loader):  # validation
                 weight, sigma, mu = full_Model(sample)
 
                 pga_label = (
@@ -167,7 +141,6 @@ def train_process(
                     -1, num_of_gaussian
                 )
                 mu_masked = torch.masked_select(mu, mask).reshape(-1, num_of_gaussian)
-                # val_loss = mdn_loss_fn(weight_masked, sigma_masked, mu_masked, pga_label_masked).cuda()
                 val_loss = torch.mean(
                     torch.sum(
                         weight_masked
@@ -184,7 +157,7 @@ def train_process(
             # checkpoint
             if train_loss.data < -1 and (epoch + 1) % 5 == 0:
                 checkpoint_path = (
-                    f"./model/model{hyper_param['model_index']}_checkpoints"
+                    f"../model/model{hyper_param['model_index']}_checkpoints"
                 )
                 if not os.path.exists(checkpoint_path):
                     os.makedirs(checkpoint_path)
@@ -192,7 +165,7 @@ def train_process(
                     full_Model.state_dict(),
                     f"{checkpoint_path}/epoch{epoch+1}_model.pt",
                 )
-            # epoch early stopping:
+            # epoch early stop:
             current_loss = val_loss.data
             if the_last_loss < -1:
                 patience = 15
@@ -222,7 +195,7 @@ def train_process(
             else:
                 print("trigger 0 time")
                 trigger_times = 0
-                path = "./model"
+                path = "../model"
                 model_file = f"{path}/model{hyper_param['model_index']}.pt"
                 torch.save(full_Model.state_dict(), model_file)
                 log_artifact(model_file)
@@ -270,8 +243,6 @@ if __name__ == "__main__":
                     pga_targets=25,
                     data_length=3000,
                 )
-                # full_Model.load_state_dict(torch.load("mlruns/2/ebd8e01aefae4fc59929c5a07cc6fffb/artifacts/model2.pt"))
-                # full_Model.train()
                 optimizer = torch.optim.Adam(
                     [
                         {"params": CNN_model.parameters()},
@@ -282,7 +253,7 @@ if __name__ == "__main__":
                     lr=LR,
                 )
                 full_data = multiple_station_dataset(
-                    "D:/TEAM_TSMIP/data/TSMIP_1999_2019_Vs30.hdf5",
+                    "../data/TSMIP_1999_2019_Vs30.hdf5",
                     mode="train",
                     mask_waveform_sec=3,
                     weight_label=False,
