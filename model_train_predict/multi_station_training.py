@@ -18,7 +18,7 @@ from model.CNN_Transformer_Mixtureoutput_TEAM import (
     TransformerEncoder,
     full_model,
 )
-from multiple_sta_dataset import multiple_station_dataset
+from data.multiple_sta_dataset import multiple_station_dataset
 
 """
 set up mlflow experiment:
