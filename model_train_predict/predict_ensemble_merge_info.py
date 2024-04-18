@@ -5,27 +5,25 @@ plt.subplots()
 import numpy as np
 import pandas as pd
 import torch
-import torch.nn as nn
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader
 from tqdm import tqdm
-import os
-
-from CNN_Transformer_Mixtureoutput_TEAM import (
+import sys
+sys.path.append("..")
+from model.CNN_Transformer_Mixtureoutput_TEAM import (
     CNN,
     MDN,
     MLP,
-    PositionEmbedding,
     PositionEmbedding_Vs30,
     TransformerEncoder,
     full_model,
 )
-from multiple_sta_dataset import multiple_station_dataset
+from data.multiple_sta_dataset import multiple_station_dataset
 from plot_predict_map import true_predicted
 
 mask_after_sec = 7
 label = "pga"
 data = multiple_station_dataset(
-    "D:/TEAM_TSMIP/data/TSMIP_1999_2019_Vs30.hdf5",
+    "../data/TSMIP_1999_2019_Vs30.hdf5",
     mode="test",
     mask_waveform_sec=mask_after_sec,
     test_year=2016,
@@ -37,7 +35,7 @@ data = multiple_station_dataset(
 # ===========predict==============
 device = torch.device("cuda")
 for num in [11]:
-    path = f"./model/model{num}.pt"
+    path = f"../model/model{num}.pt"
     emb_dim = 150
     mlp_dims = (150, 100, 50, 30, 10)
     CNN_model = CNN(mlp_input=5665).cuda()
@@ -114,13 +112,12 @@ for num in [11]:
     }
     output_df = pd.DataFrame(output)
     output_df = output_df[output_df["answer"] != 0]
-    output_df.to_csv(
-        f"./predict/model {num} {mask_after_sec} sec prediction.csv", index=False
-    )
+    # output_df.to_csv(
+    #     f"./predict/model {num} {mask_after_sec} sec prediction.csv", index=False
+    # )
     fig, ax = true_predicted(
         y_true=output_df["answer"],
         y_pred=output_df["predict"],
-        time=mask_after_sec,
         quantile=False,
         agg="point",
         point_size=12,
@@ -140,40 +137,11 @@ for num in [11]:
         fontsize=20,
     )
 
-    fig.savefig(f"./predict/model {num} {mask_after_sec} sec.png")
-
-# ===========ensemble==============
-mask_after_sec = 10
-
-predict5 = pd.read_csv(
-    f"./predict/station_blind_noVs30_bias2closed_station_2016/model 5 {mask_after_sec} sec prediction.csv"
-)
-predict10 = pd.read_csv(
-    f"./predict/station_blind_noVs30_bias2closed_station_2016/model 10 {mask_after_sec} sec prediction.csv"
-)
-
-ensemble_predict = (predict5 + predict10) / 2
-fig, ax = true_predicted(
-    y_true=ensemble_predict["answer"],
-    y_pred=ensemble_predict["predict"],
-    time=mask_after_sec,
-    quantile=False,
-    agg="point",
-    point_size=20,
-    target=label,
-    title=f"{mask_after_sec}s Ensemble Prediction, 2016 data",
-)
-ax.scatter(
-    ensemble_predict["answer"][ensemble_predict["EQ_ID"] == eq_id],
-    ensemble_predict["predict"][ensemble_predict["EQ_ID"] == eq_id],
-    c="r",
-)
-# fig.savefig(f"./predict/station_blind_noVs30_bias2closed_station_2016/{mask_after_sec} sec ensemble 510.png",dpi=300)
+    # fig.savefig(f"../predict/model {num} {mask_after_sec} sec.png")
 
 # ===========merge info==============
-mask_after_sec = 3
-Afile_path = "data preprocess/events_traces_catalog"
-output_path = "predict/station_blind_Vs30_bias2closed_station_2016"
+Afile_path = "../data_preprocess/events_traces_catalog"
+output_path = "../predict/station_blind_Vs30_bias2closed_station_2016"
 catalog = pd.read_csv(f"{Afile_path}/1999_2019_final_catalog.csv")
 traces_info = pd.read_csv(f"{Afile_path}/1999_2019_final_traces_Vs30.csv")
 ensemble_predict = pd.read_csv(
@@ -237,41 +205,6 @@ prediction_with_info = pd.merge(
     how="left",
     suffixes=["_window", "_file"],
 )
-prediction_with_info.to_csv(
-    f"{output_path}/{mask_after_sec} sec model11 with all info.csv", index=False
-)
-
-# ===========plot mag>=5.5===========
-mag5_5_prediction = prediction_with_info.query("magnitude>=5.5")
-label_type = "pga"
-fig, ax = true_predicted(
-    y_true=mag5_5_prediction["answer"],
-    y_pred=mag5_5_prediction["predict"],
-    time=mask_after_sec,
-    quantile=False,
-    agg="point",
-    point_size=70,
-    target=label_type,
-    title=f"Magnitude>=5.5 event {mask_after_sec} sec",
-)
-
-# ===========check prediction in magnitude===========
-mask_after_sec = 5
-
-label = "pga"
-fig, ax = true_predicted(
-    y_true=prediction_with_info["answer"][prediction_with_info["magnitude"] >= 5],
-    y_pred=prediction_with_info["predict"][prediction_with_info["magnitude"] >= 5],
-    time=mask_after_sec,
-    quantile=False,
-    agg="point",
-    point_size=20,
-    target=label,
-)
-
-ax.scatter(
-    prediction_with_info["answer"][prediction_with_info["magnitude"] < 5],
-    prediction_with_info["predict"][prediction_with_info["magnitude"] < 5],
-    c="r",
-    label="magnitude < 5",
-)
+# prediction_with_info.to_csv(
+#     f"{output_path}/{mask_after_sec} sec model11 with all info.csv", index=False
+# )
