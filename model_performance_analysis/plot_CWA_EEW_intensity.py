@@ -1,17 +1,11 @@
 import math
 import pandas as pd
-from plot_predict_map import TaiwanIntensity
-import cartopy.crs as ccrs
-import cartopy
-import matplotlib.pyplot as plt
-import matplotlib as mpl
 import numpy as np
-from scipy.interpolate import griddata
-from cartopy.mpl import ticker
 import re
 import os
 from sklearn.metrics import confusion_matrix
-from plot_predict_map import true_predicted
+from analysis import Intensity_Plotter
+
 
 def haversine(lat1, lon1, lat2, lon2):
     # 將經緯度轉換為弧度
@@ -37,151 +31,11 @@ def haversine(lat1, lon1, lat2, lon2):
 
     return distance
 
-def plot_CWA_EEW_intensity_map(final_traces,final_catalog,eqid,label_type,output_path=None):
-    label_type = "pga"
-    trace_info = final_traces.query(f"eqid=={eqid}")
-    eventmeta = final_catalog.query(f"eqid=={eqid}")
-    process_time = eventmeta["eew_time"].values[0]
-    mixed_true_pga = np.sqrt(
-        trace_info["PGA(V)"] ** 2
-        + trace_info["PGA(NS)"] ** 2
-        + trace_info["PGA(EW)"] ** 2
-    )
-    pred_label = np.log10(trace_info["predict_pga"] / 100)
-    true_label = np.log10(mixed_true_pga / 100)
-    intensity = TaiwanIntensity()
-    src_crs = ccrs.PlateCarree()
-    fig, ax_map = plt.subplots(subplot_kw={"projection": src_crs}, figsize=(7, 7))
-
-    ax_map.coastlines("10m")
-
-    cmap = mpl.colors.ListedColormap(
-        [
-            "#ffffff",
-            "#33FFDD",
-            "#34ff32",
-            "#fefd32",
-            "#fe8532",
-            "#fd5233",
-            "#c43f3b",
-            "#9d4646",
-            "#9a4c86",
-            "#b51fea",
-        ]
-    )
-    if label_type == "pga":
-        norm = mpl.colors.BoundaryNorm(intensity.pga, cmap.N)
-        intensity_ticks = intensity.pga_ticks
-    if label_type == "pgv":
-        norm = mpl.colors.BoundaryNorm(intensity.pgv, cmap.N)
-        intensity_ticks = intensity.pgv_ticks
-
-    numcols, numrows = 100, 200
-    xi = np.linspace(
-        min(trace_info["sta_lon_pre"]), max(trace_info["sta_lon_pre"]), numcols
-    )
-    yi = np.linspace(
-        min(trace_info["sta_lat_pre"]), max(trace_info["sta_lat_pre"]), numrows
-    )
-    xi, yi = np.meshgrid(xi, yi)
-
-    grid_pred = griddata(
-        (trace_info["sta_lon_pre"], trace_info["sta_lat_pre"]),
-        pred_label,
-        (xi, yi),
-        method="linear",
-    )
-    ax_map.add_feature(
-        cartopy.feature.OCEAN, zorder=2, edgecolor="k"
-    )  # zorder越大的圖層 越上面
-    ax_map.contourf(xi, yi, grid_pred, cmap=cmap, norm=norm, zorder=1)
-
-    sta = ax_map.scatter(
-        trace_info["sta_lon_true"],
-        trace_info["sta_lat_true"],
-        c=true_label,
-        cmap=cmap,
-        norm=norm,
-        edgecolors="k",
-        linewidth=1,
-        marker="o",
-        s=20,
-        zorder=3,
-        label="True Intensity",
-    )
-    ax_map.scatter(
-        trace_info["sta_lon_pre"],
-        trace_info["sta_lat_pre"],
-        c=pred_label,
-        cmap=cmap,
-        norm=norm,
-        edgecolors="k",
-        linewidth=1,
-        marker="^",
-        s=20,
-        zorder=3,
-        label="Predicted Intensity",
-    )
-    event_lon = eventmeta["catalog_lon"]
-    event_lat = eventmeta["catalog_lat"]
-    ax_map.scatter(
-        event_lon,
-        event_lat,
-        color="red",
-        edgecolors="k",
-        linewidth=1,
-        marker="*",
-        s=500,
-        zorder=10,
-        label="catalog epicenter",
-    )
-    ax_map.text(
-        event_lon + 0.15,
-        event_lat,
-        f"M{eventmeta['catalog_mag'].values[0]}",
-        va="center",
-        zorder=11,
-    )
-    xmin, xmax = ax_map.get_xlim()
-    ymin, ymax = ax_map.get_ylim()
-
-    if xmax - xmin > ymax - ymin:  # check if square
-        ymin = (ymax + ymin) / 2 - (xmax - xmin) / 2
-        ymax = (ymax + ymin) / 2 + (xmax - xmin) / 2
-    else:
-        xmin = (xmax + xmin) / 2 - (ymax - ymin) / 2
-        xmax = (xmax + xmin) / 2 + (ymax - ymin) / 2
-
-    xticks = ticker.LongitudeLocator(nbins=5)._raw_ticks(xmin, xmax)
-    yticks = ticker.LatitudeLocator(nbins=5)._raw_ticks(ymin, ymax)
-
-    ax_map.set_xticks(xticks, crs=ccrs.PlateCarree())
-    ax_map.set_yticks(yticks, crs=ccrs.PlateCarree())
-
-    ax_map.xaxis.set_major_formatter(
-        ticker.LongitudeFormatter(zero_direction_label=True)
-    )
-    ax_map.yaxis.set_major_formatter(ticker.LatitudeFormatter())
-
-    ax_map.xaxis.set_ticks_position("both")
-    ax_map.yaxis.set_ticks_position("both")
-
-    ax_map.set_xlim(xmin, xmax)
-    ax_map.set_ylim(ymin, ymax)
-    ax_map.set_title(f"Process time: {int(process_time)} sec", fontsize=15)
-    cbar = plt.colorbar(sta, extend="both")
-    cbar.set_ticks(intensity_ticks)
-    cbar.set_ticklabels(intensity.label)
-    cbar.set_label("Seismic Intensity")
-    plt.legend()
-    plt.tight_layout()
-    if output_path:
-        fig.savefig(f"{output_path}/eqid_{eqid}_CWA_eew_report.pdf",dpi=300)
-    return fig, ax_map
 
 # EEW calculate intensity
-site_info = pd.read_excel("CWA EEW report/site.xlsx")
-catalog = pd.read_excel("CWA EEW report/EEW2016.xlsx")
+path = "../CWA_EEW_report"
+site_info = pd.read_excel(f"{path}/site.xlsx")
+catalog = pd.read_excel(f"{path}/EEW2016.xlsx")
 catalog.columns = [
     "event_time",
     "catalog_lon",
@@ -259,11 +113,9 @@ true_pga_dict = {
     "PGA(NS)": [],
     "PGA(EW)": [],
 }
-files = os.listdir("CWA EEW report/event_true_pga")
+files = os.listdir(f"{path}/event_true_pga")
 for file in files:
-    with open(
-        f"CWA EEW report/event_true_pga/{file}", "r", encoding="iso-8859-1"
-    ) as event:
+    with open(f"{path}/event_true_pga/{file}", "r", encoding="iso-8859-1") as event:
         start_line = 5
         lines = event.readlines()
         for i in range(start_line, len(lines)):
@@ -312,23 +164,15 @@ final_traces["PGA"] = np.sqrt(
     + final_traces["PGA(EW)"] ** 2
 )
 residual_mean = (
-    (
-        np.log10(final_traces["predict_pga"] * 0.01)
-        - np.log10(final_traces["PGA"] * 0.01)
-    )
-    .mean()
-)
+    np.log10(final_traces["predict_pga"] * 0.01) - np.log10(final_traces["PGA"] * 0.01)
+).mean()
 residual_std = (
-    (
-        np.log10(final_traces["predict_pga"] * 0.01)
-        - np.log10(final_traces["PGA"] * 0.01)
-    )
-    .std()
+    np.log10(final_traces["predict_pga"] * 0.01) - np.log10(final_traces["PGA"] * 0.01)
+).std()
+label_threshold = np.log10(np.array([0.250]))  # 3,4,5級
+predict_logic = np.where(
+    np.log10(final_traces["predict_pga"] * 0.01) > label_threshold[0], 1, 0
 )
-label_threshold = np.log10(
-    np.array([0.250])  # 3,4,5級
-)
-predict_logic = np.where(np.log10(final_traces["predict_pga"] * 0.01) > label_threshold[0], 1, 0)
 real_logic = np.where(np.log10(final_traces["PGA"] * 0.01) > label_threshold[0], 1, 0)
 
 matrix = confusion_matrix(real_logic, predict_logic, labels=[1, 0])
@@ -337,7 +181,7 @@ precision = matrix[0][0] / np.sum(matrix, axis=0)[0]  # TP/(TP+FP)
 recall = matrix[0][0] / np.sum(matrix, axis=1)[0]  # TP/(TP+FP)
 F1_score = 2 / ((1 / precision) + (1 / recall))
 
-fig,ax=true_predicted(
+fig, ax = Intensity_Plotter.plot_true_predicted(
     y_true=np.log10(final_traces["PGA"] * 0.01),
     y_pred=np.log10(final_traces["predict_pga"] * 0.01),
     quantile=False,
@@ -351,6 +195,8 @@ fig,ax=true_predicted(
 
 for eqid in final_catalog["eqid"]:
     label_type = "pga"
-    fig,ax=plot_CWA_EEW_intensity_map(final_traces,final_catalog,eqid,label_type)
-    
+    fig, ax = Intensity_Plotter.plot_CWA_EEW_intensity_map(
+        final_traces, final_catalog, eqid, label_type
+    )
+
     # fig.savefig(f"paper image/eqid_{eqid}_CWA_eew_report.pdf",dpi=300)

@@ -43,6 +43,8 @@ data_preprocess/0918_M6.8_1319_1330/*.csv
 #feature map correlation
 feature_map_correlation/__pycache__
 
+model_performance_analysis/__pycache__
+
 #0403 Hualien_earthquake
 /data_preprocess/0403_Hualien_Earthquake/0403waveform_image
 /data_preprocess/0403_Hualien_Earthquake/113019_TSMIP_SAC
@@ -55,4 +57,4 @@ feature_map_correlation/__pycache__
 /data_preprocess/0403_Hualien_Earthquake/0403asc_by_Joey
 /data_preprocess/0403_Hualien_Earthquake/triggered_station
 #CWA eew
-/CWA EEW report
+/CWA_EEW_report
