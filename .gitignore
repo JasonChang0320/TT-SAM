@@ -20,8 +20,6 @@ model/*
 /multi_input_predict_pga_and_pgv/mlruns
 /multi_input_predict_pga_and_pgv/model
 
-#document
-112CWB_EEW_mid_report.docx
 
 #data preprocess
 data_preprocess/*
@@ -33,7 +31,6 @@ data_preprocess/tracer_demo/1999_2008_output
 data_preprocess/tracer_demo/2009_2019_output
 data_preprocess/tracer_demo/2023_output
 data_preprocess/tracer_demo/model_image
-
 data_preprocess/tracer_demo/create_input_file/*
 !data_preprocess/tracer_demo/create_input_file/*.py
 
@@ -42,6 +39,9 @@ data_preprocess/tracer_demo/create_input_file/*
 !data_preprocess/0918_M6.8_1319_1330/
 data_preprocess/0918_M6.8_1319_1330/cut trace
 data_preprocess/0918_M6.8_1319_1330/*.csv
+
+#feature map correlation
+feature_map_correlation/__pycache__
 
 #0403 Hualien_earthquake
 /data_preprocess/0403_Hualien_Earthquake/0403waveform_image
