@@ -827,3 +827,162 @@ class Warning_Time_Plotter:
         ax.set_xlabel("epicentral distance (km)")
         ax.set_ylabel("time (sec)")
         return fig, ax
+
+
+class Triggered_Map:
+
+    def plot_station_map(
+        trace_info=None,
+        center=None,
+        pad=None,
+        sec=None,
+        title=None,
+        output_dir=None,
+        EQ_ID=None,
+        Pwave_vel=6.5,
+        Swave_vel=3.5,
+    ):
+        src_crs = ccrs.PlateCarree()
+        fig, ax_map = plt.subplots(subplot_kw={"projection": src_crs}, figsize=(7, 7))
+
+        ax_map.coastlines("10m")
+
+        ax_map.add_feature(
+            cartopy.feature.OCEAN, zorder=2, edgecolor="k"
+        )  # zorder越大的圖層 越上面
+
+        sta = ax_map.scatter(
+            trace_info["longitude"],
+            trace_info["latitude"],
+            edgecolors="k",
+            linewidth=1,
+            marker="^",
+            s=20,
+            zorder=3,
+            label="Station",
+        )
+        event_lon = trace_info["event_lon"].values[0]
+        event_lat = trace_info["event_lat"].values[0]
+        ax_map.scatter(
+            event_lon,
+            event_lat,
+            color="red",
+            edgecolors="k",
+            linewidth=1,
+            marker="*",
+            s=500,
+            zorder=10,
+            label="Epicenter",
+        )
+        gd = Geodesic()
+        geoms = []
+        for wave_velocity in [Pwave_vel, Swave_vel]:
+            radius = (
+                trace_info["epdis (km)"][
+                    trace_info["p_picks"] == trace_info["p_picks"].min()
+                ].values[0]
+                + sec * wave_velocity
+            ) * 1000
+            cp = gd.circle(lon=event_lon, lat=event_lat, radius=radius)
+            geoms.append(sgeom.Polygon(cp))
+        ax_map.add_geometries(
+            geoms,
+            crs=src_crs,
+            edgecolor=["k", "r"],
+            color=["grey", "red"],
+            alpha=0.2,
+            zorder=2.5,
+        )
+        ax_map.text(
+            event_lon + 0.1,
+            event_lat,
+            f"M{trace_info['magnitude'].values[0]}",
+            va="center",
+            zorder=11,
+        )
+        xmin, xmax = ax_map.get_xlim()
+        ymin, ymax = ax_map.get_ylim()
+
+        if xmax - xmin > ymax - ymin:  # check if square
+            ymin = (ymax + ymin) / 2 - (xmax - xmin) / 2
+            ymax = (ymax + ymin) / 2 + (xmax - xmin) / 2
+        else:
+            xmin = (xmax + xmin) / 2 - (ymax - ymin) / 2
+            xmax = (xmax + xmin) / 2 + (ymax - ymin) / 2
+
+        if center:
+            xmin, xmax, ymin, ymax = [
+                center[0] - pad,
+                center[0] + pad,
+                center[1] - pad,
+                center[1] + pad,
+            ]
+        xmin = trace_info["longitude"].min() - 0.6
+        xmax = trace_info["longitude"].max() + 0.6
+        ymin = trace_info["latitude"].min() - 0.6
+        ymax = trace_info["latitude"].max() + 0.6
+        xticks = ticker.LongitudeLocator(nbins=5)._raw_ticks(xmin, xmax)
+        yticks = ticker.LatitudeLocator(nbins=5)._raw_ticks(ymin, ymax)
+
+        ax_map.set_xticks(xticks, crs=ccrs.PlateCarree())
+        ax_map.set_yticks(yticks, crs=ccrs.PlateCarree())
+
+        ax_map.xaxis.set_major_formatter(
+            ticker.LongitudeFormatter(zero_direction_label=True)
+        )
+        ax_map.yaxis.set_major_formatter(ticker.LatitudeFormatter())
+
+        ax_map.xaxis.set_ticks_position("both")
+        ax_map.yaxis.set_ticks_position("both")
+
+        ax_map.set_xlim(xmin, xmax)
+        ax_map.set_ylim(ymin, ymax)
+        if title:
+            ax_map.set_title(title)
+        else:
+            ax_map.set_title(f"EQ ID: {EQ_ID}, {sec} sec Input Stations")
+        plt.legend()
+        plt.tight_layout()
+        if output_dir:
+            plt.savefig(os.path.join(output_dir, f"intensity_{sec}s.png"), format="png")
+            plt.close(fig)
+        else:
+            plt.show()
+        return fig, ax_map
+
+    def plot_model_waveforms_input(waveform, picks, record_prediction, mask_after_sec):
+        waveform_num = len(
+            np.where(np.array(picks) <= picks[0] + (mask_after_sec * 200))[0]
+        )
+        waveforms_fig, waveforms_ax = plt.subplots(
+            waveform_num,
+            1,
+            figsize=(7, 28),
+        )
+        for i in range(waveform_num):
+            station_name = record_prediction["station_name"][i]
+            answer = np.round(100 * (10 ** record_prediction["answer"][i]), 2)
+            waveforms_ax[i].plot(waveform[i, :, 0])
+            waveforms_ax[i].axvline(x=picks[i], c="r")
+            waveforms_ax[i].set_yticklabels("")
+            waveforms_ax[i].text(
+                -0.05,
+                0.5,
+                f"{station_name}",
+                fontsize=14,
+                transform=waveforms_ax[i].transAxes,
+                ha="right",
+                va="center",
+            )
+            waveforms_ax[i].text(
+                1.05,
+                0.5,
+                f"PGA: {answer} gal",
+                fontsize=14,
+                transform=waveforms_ax[i].transAxes,
+                ha="left",
+                va="center",
+            )
+            if i != waveform_num - 1:
+                waveforms_ax[i].set_xticklabels("")
+        return waveforms_fig, waveforms_ax

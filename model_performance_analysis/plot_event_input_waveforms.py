@@ -5,14 +5,17 @@ import numpy as np
 import pandas as pd
 from torch.utils.data import DataLoader
 from tqdm import tqdm
+import sys
+sys.path.append("..")
+from data.multiple_sta_dataset import multiple_station_dataset
+from analysis import Triggered_Map
 
-from multiple_sta_dataset import multiple_station_dataset
 
-mask_after_sec = 3
+mask_after_sec = 10
 label = "pga"
-eq_id = 24784
+eq_id = 25900
 data = multiple_station_dataset(
-    "D:/TEAM_TSMIP/data/TSMIP_1999_2019_Vs30.hdf5",
+    "../data/TSMIP_1999_2019_Vs30.hdf5",
     mode="test",
     mask_waveform_sec=mask_after_sec,
     test_year=2016,
@@ -21,7 +24,7 @@ data = multiple_station_dataset(
     data_length_sec=15,
 )
 record_prediction = pd.read_csv(
-    f"predict/station_blind_noVs30_bias2closed_station_2016/{mask_after_sec} sec ensemble 510 with all info.csv"
+    f"../predict/station_blind_noVs30_bias2closed_station_2016/{mask_after_sec} sec ensemble 510 with all info.csv"
 )
 record_prediction = record_prediction[record_prediction["EQ_ID"] == eq_id].reset_index(
     drop=True
@@ -38,6 +41,7 @@ Sta_name = []
 Lat = []
 Lon = []
 Elev = []
+
 for j, sample in tqdm(enumerate(loader)):
     picks = sample["p_picks"].flatten().numpy().tolist()
     label_time = sample[f"{label}_time"].flatten().numpy().tolist()
@@ -57,39 +61,14 @@ for j, sample in tqdm(enumerate(loader)):
     EQ_ID.extend([np.nan] * (25 - len(eq_id_list)))
     if eq_id_list[0] == eq_id:
         waveform = sample["waveform"].numpy().reshape(25, 3000, 3)
+        waveforms_fig,waveforms_ax=Triggered_Map.plot_model_waveforms_input(waveform,picks,record_prediction,mask_after_sec)
+
         waveform_num = len(
             np.where(np.array(picks) <= picks[0] + (mask_after_sec * 200))[0]
-        )
-        waveforms_fig, waveforms_ax = plt.subplots(
-            waveform_num,
-            1,
-            figsize=(7, 7),
         )
         for i in range(waveform_num):
             station_name = record_prediction["station_name"][i]
             answer = np.round(100 * (10 ** record_prediction["answer"][i]), 2)
-            waveforms_ax[i].plot(waveform[i, :, 0])
-            waveforms_ax[i].axvline(x=picks[i], c="r")
-            waveforms_ax[i].set_yticklabels("")
-            waveforms_ax[i].text(
-                -0.05,
-                0.5,
-                f"{station_name}",
-                fontsize=14,
-                transform=waveforms_ax[i].transAxes,
-                ha="right",
-                va="center",
-            )
-            waveforms_ax[i].text(
-                1.05,
-                0.5,
-                f"PGA: {answer} gal",
-                fontsize=14,
-                transform=waveforms_ax[i].transAxes,
-                ha="left",
-                va="center",
-            )
-            # if mask_after_sec==5:
             waveform_fig, waveform_ax = plt.subplots(3, 1, figsize=(7, 7))
             for j in range(3):
                 waveform_ax[j].plot(waveform[i, :, j])
@@ -99,5 +78,8 @@ for j, sample in tqdm(enumerate(loader)):
         waveforms_ax[0].set_title(
             f"EQID:{eq_id} {mask_after_sec} sec acc records, Z component", size=20
         )
-        # waveforms_fig.savefig(f"{path}/eqid{eq_id}_{mask_after_sec}_sec_Z_acc.png",bbox_inches='tight')
+        waveforms_ax[-1].set_xlabel(
+            "Time sample (200Hz)",size=15
+        )
+        # waveforms_fig.savefig(f"paper image/eqid{eq_id}_{mask_after_sec}_sec_Z_acc.png",bbox_inches='tight',dpi=300)
         break

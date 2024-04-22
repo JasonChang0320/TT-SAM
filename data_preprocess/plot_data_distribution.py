@@ -3,8 +3,7 @@ import seaborn as sns
 import pandas as pd
 import numpy as np
 
-Afile_path = "data preprocess/events_traces_catalog"
-
+Afile_path = "./events_traces_catalog"
 
 def plot_event_distribution(catalog, output_path=None):
     fig, ax = plt.subplots(figsize=(7, 7))
@@ -17,20 +16,6 @@ def plot_event_distribution(catalog, output_path=None):
         fig.savefig(f"{output_path}/event_distribution.png", dpi=300)
     return fig, ax
 
-
-before_catalog = pd.read_csv(f"{Afile_path}/2009_2019_ok_events_p_arrival_abstime.csv")
-after_catalog = pd.read_csv(f"{Afile_path}/1999_2019_final_catalog.csv")
-
-before_catalog["from"] = "2009~2019 M>=3.5"
-after_catalog["from"] = "1999~2008 M>=5.5"
-
-catalog = pd.concat([before_catalog, after_catalog])
-catalog.reset_index(inplace=True, drop=True)
-
-fig, ax = plot_event_distribution(catalog, output_path=None)
-
-
-###### trace
 def plot_trace_distribution(trace, output_path=None):
     label = ["2", "3", "4", "5-", "5+", "6-", "6+", "7"]
     pga_threshold = np.log10([0.025, 0.080, 0.250, 0.80, 1.4, 2.5, 4.4, 8.0, 10])
@@ -47,6 +32,18 @@ def plot_trace_distribution(trace, output_path=None):
         fig.savefig(f"{output_path}/traces_distribution.png", dpi=300)
     return fig, ax
 
+before_catalog = pd.read_csv(f"{Afile_path}/2009_2019_ok_events_p_arrival_abstime.csv")
+after_catalog = pd.read_csv(f"{Afile_path}/1999_2019_final_catalog.csv")
+
+before_catalog["from"] = "2009~2019 M>=3.5"
+after_catalog["from"] = "1999~2008 M>=5.5"
+
+catalog = pd.concat([before_catalog, after_catalog])
+catalog.reset_index(inplace=True, drop=True)
+
+fig, ax = plot_event_distribution(catalog, output_path=None)
+
+###### trace
 
 before_trace = pd.read_csv(
     f"{Afile_path}/2009_2019_picked_traces_p_arrival_abstime_labeled_nostaoverlap.csv"
