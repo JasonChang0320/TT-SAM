@@ -49,7 +49,7 @@ for EQ_ID in [24784, 25900]:
         title=f"{mask_after_sec} sec intensity Map",
     )
     # fig.savefig(
-    #     f"paper image/{EQ_ID}_{mask_after_sec}sec PGA intensity Map_poster.png", dpi=600, bbox_inches="tight"
+    #     f"../paper image/{EQ_ID}_{mask_after_sec}sec PGA intensity Map.png", dpi=600, bbox_inches="tight"
     # )
     fig, ax = Intensity_Plotter.plot_true_predicted(
         y_true=event_prediction["answer"],
@@ -74,7 +74,7 @@ for EQ_ID in [24784, 25900]:
             label_threshold=label_threshold,
         )
 
-        # fig.savefig(f"paper image/{EQ_ID}_mag_{event['magnitude'].values[0]}_{mask_after_sec} sec warning map.png",
+        # fig.savefig(f"../paper image/{EQ_ID}_mag_{event['magnitude'].values[0]}_{mask_after_sec} sec warning map.png",
         #             dpi=600)
         fig, ax = Warning_Time_Plotter.correct_warning_with_epidist(
             event_prediction=event_prediction,

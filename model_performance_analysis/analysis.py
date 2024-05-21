@@ -218,15 +218,28 @@ class Intensity_Plotter:
         )
         gd = Geodesic()
         geoms = []
-        for wave_velocity in [Pwave_vel, Swave_vel]:
-            radius = (
-                trace_info["epdis (km)"][
-                    trace_info["p_picks"] == trace_info["p_picks"].min()
-                ].values[0]
-                + sec * wave_velocity
-            ) * 1000
-            cp = gd.circle(lon=event_lon, lat=event_lat, radius=radius)
-            geoms.append(sgeom.Polygon(cp))
+        P_radius = (
+        trace_info["epdis (km)"][
+            trace_info["p_picks"] == trace_info["p_picks"].min()
+        ].values[0]
+        + sec * Pwave_vel
+        ) * 1000
+        cp = gd.circle(lon=event_lon, lat=event_lat, radius=P_radius)
+        geoms.append(sgeom.Polygon(cp))
+
+        travel_time=(P_radius/1000)/Pwave_vel
+        S_radius=Swave_vel*travel_time*1000
+        cp = gd.circle(lon=event_lon, lat=event_lat, radius=S_radius)
+        geoms.append(sgeom.Polygon(cp))
+        # for wave_velocity in [Pwave_vel, Swave_vel]:
+        #     radius = (
+        #         trace_info["epdis (km)"][
+        #             trace_info["p_picks"] == trace_info["p_picks"].min()
+        #         ].values[0]
+        #         + sec * wave_velocity
+        #     ) * 1000
+        #     cp = gd.circle(lon=event_lon, lat=event_lat, radius=radius)
+        #     geoms.append(sgeom.Polygon(cp))
         ax_map.add_geometries(
             geoms,
             crs=src_crs,
@@ -652,17 +665,23 @@ class Warning_Time_Plotter:
             zorder=10,
             label="Epicenter",
         )
+        #P S wave radius
         gd = Geodesic()
         geoms = []
-        for wave_velocity in [Pwave_vel, Swave_vel]:
-            radius = (
-                trace_info["epdis (km)"][
-                    trace_info["p_picks"] == trace_info["p_picks"].min()
-                ].values[0]
-                + sec * wave_velocity
-            ) * 1000
-            cp = gd.circle(lon=event_lon, lat=event_lat, radius=radius)
-            geoms.append(sgeom.Polygon(cp))
+        P_radius = (
+        trace_info["epdis (km)"][
+            trace_info["p_picks"] == trace_info["p_picks"].min()
+        ].values[0]
+        + sec * Pwave_vel
+        ) * 1000
+        cp = gd.circle(lon=event_lon, lat=event_lat, radius=P_radius)
+        geoms.append(sgeom.Polygon(cp))
+
+        travel_time=(P_radius/1000)/Pwave_vel
+        S_radius=Swave_vel*travel_time*1000
+        cp = gd.circle(lon=event_lon, lat=event_lat, radius=S_radius)
+        geoms.append(sgeom.Polygon(cp))
+
         ax_map.add_geometries(
             geoms,
             crs=src_crs,
@@ -986,3 +1005,41 @@ class Triggered_Map:
             if i != waveform_num - 1:
                 waveforms_ax[i].set_xticklabels("")
         return waveforms_fig, waveforms_ax
+
+
+class Residual_Plotter:
+    def residual_with_attribute(
+        prediction_with_info=None, column=None,single_case_check=None, wrong_predict=None, test_year=None
+    ):
+        fig, ax = plt.subplots()
+        ax.scatter(
+            prediction_with_info[f"{column}"],
+            prediction_with_info["predict"] - prediction_with_info["answer"],
+            s=10,
+            alpha=0.3,
+            label="others",
+        )
+        if single_case_check:
+            ax.scatter(
+                prediction_with_info.query(f"EQ_ID=={single_case_check}")[f"{column}"],
+                prediction_with_info.query(f"EQ_ID=={single_case_check}")["predict"]
+                - prediction_with_info.query(f"EQ_ID=={single_case_check}")["answer"],
+                s=10,
+                alpha=0.3,
+                c="r",
+                label="meinong eq",
+            )
+        residual_mean = np.round(
+            (prediction_with_info["predict"] - prediction_with_info["answer"]).mean(), 3
+        )
+        residual_std = np.round(
+            (prediction_with_info["predict"] - prediction_with_info["answer"]).std(), 3
+        )
+        wrong_predict_rate = np.round(len(wrong_predict) / len(prediction_with_info), 3)
+        ax.legend()
+        ax.set_xlabel(f"{column}")
+        ax.set_ylabel("predict-answer")
+        ax.set_title(
+            f"Predicted residual in {test_year} \n mean: {residual_mean}, std: {residual_std}, wrong rate: {wrong_predict_rate}"
+        )
+        return fig,ax
