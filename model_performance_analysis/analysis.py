@@ -219,27 +219,19 @@ class Intensity_Plotter:
         gd = Geodesic()
         geoms = []
         P_radius = (
-        trace_info["epdis (km)"][
-            trace_info["p_picks"] == trace_info["p_picks"].min()
-        ].values[0]
-        + sec * Pwave_vel
+            trace_info["epdis (km)"][
+                trace_info["p_picks"] == trace_info["p_picks"].min()
+            ].values[0]
+            + sec * Pwave_vel
         ) * 1000
         cp = gd.circle(lon=event_lon, lat=event_lat, radius=P_radius)
         geoms.append(sgeom.Polygon(cp))
 
-        travel_time=(P_radius/1000)/Pwave_vel
-        S_radius=Swave_vel*travel_time*1000
+        travel_time = (P_radius / 1000) / Pwave_vel
+        S_radius = Swave_vel * travel_time * 1000
         cp = gd.circle(lon=event_lon, lat=event_lat, radius=S_radius)
         geoms.append(sgeom.Polygon(cp))
-        # for wave_velocity in [Pwave_vel, Swave_vel]:
-        #     radius = (
-        #         trace_info["epdis (km)"][
-        #             trace_info["p_picks"] == trace_info["p_picks"].min()
-        #         ].values[0]
-        #         + sec * wave_velocity
-        #     ) * 1000
-        #     cp = gd.circle(lon=event_lon, lat=event_lat, radius=radius)
-        #     geoms.append(sgeom.Polygon(cp))
+
         ax_map.add_geometries(
             geoms,
             crs=src_crs,
@@ -665,20 +657,20 @@ class Warning_Time_Plotter:
             zorder=10,
             label="Epicenter",
         )
-        #P S wave radius
+        # P S wave radius
         gd = Geodesic()
         geoms = []
         P_radius = (
-        trace_info["epdis (km)"][
-            trace_info["p_picks"] == trace_info["p_picks"].min()
-        ].values[0]
-        + sec * Pwave_vel
+            trace_info["epdis (km)"][
+                trace_info["p_picks"] == trace_info["p_picks"].min()
+            ].values[0]
+            + sec * Pwave_vel
         ) * 1000
         cp = gd.circle(lon=event_lon, lat=event_lat, radius=P_radius)
         geoms.append(sgeom.Polygon(cp))
 
-        travel_time=(P_radius/1000)/Pwave_vel
-        S_radius=Swave_vel*travel_time*1000
+        travel_time = (P_radius / 1000) / Pwave_vel
+        S_radius = Swave_vel * travel_time * 1000
         cp = gd.circle(lon=event_lon, lat=event_lat, radius=S_radius)
         geoms.append(sgeom.Polygon(cp))
 
@@ -895,15 +887,19 @@ class Triggered_Map:
         )
         gd = Geodesic()
         geoms = []
-        for wave_velocity in [Pwave_vel, Swave_vel]:
-            radius = (
-                trace_info["epdis (km)"][
-                    trace_info["p_picks"] == trace_info["p_picks"].min()
-                ].values[0]
-                + sec * wave_velocity
-            ) * 1000
-            cp = gd.circle(lon=event_lon, lat=event_lat, radius=radius)
-            geoms.append(sgeom.Polygon(cp))
+        P_radius = (
+            trace_info["epdis (km)"][
+                trace_info["p_picks"] == trace_info["p_picks"].min()
+            ].values[0]
+            + sec * Pwave_vel
+        ) * 1000
+        cp = gd.circle(lon=event_lon, lat=event_lat, radius=P_radius)
+        geoms.append(sgeom.Polygon(cp))
+
+        travel_time = (P_radius / 1000) / Pwave_vel
+        S_radius = Swave_vel * travel_time * 1000
+        cp = gd.circle(lon=event_lon, lat=event_lat, radius=S_radius)
+        geoms.append(sgeom.Polygon(cp))
         ax_map.add_geometries(
             geoms,
             crs=src_crs,
@@ -1009,7 +1005,11 @@ class Triggered_Map:
 
 class Residual_Plotter:
     def residual_with_attribute(
-        prediction_with_info=None, column=None,single_case_check=None, wrong_predict=None, test_year=None
+        prediction_with_info=None,
+        column=None,
+        single_case_check=None,
+        wrong_predict=None,
+        test_year=None,
     ):
         fig, ax = plt.subplots()
         ax.scatter(
@@ -1042,4 +1042,4 @@ class Residual_Plotter:
         ax.set_title(
             f"Predicted residual in {test_year} \n mean: {residual_mean}, std: {residual_std}, wrong rate: {wrong_predict_rate}"
         )
-        return fig,ax
+        return fig, ax
