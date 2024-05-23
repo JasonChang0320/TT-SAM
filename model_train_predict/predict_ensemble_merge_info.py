@@ -18,7 +18,7 @@ from model.CNN_Transformer_Mixtureoutput_TEAM import (
     full_model,
 )
 from data.multiple_sta_dataset import multiple_station_dataset
-from plot_predict_map import true_predicted
+from model_performance_analysis.analysis import Intensity_Plotter
 
 mask_after_sec = 7
 label = "pga"
@@ -115,7 +115,7 @@ for num in [11]:
     # output_df.to_csv(
     #     f"./predict/model {num} {mask_after_sec} sec prediction.csv", index=False
     # )
-    fig, ax = true_predicted(
+    fig, ax = Intensity_Plotter.true_predicted(
         y_true=output_df["answer"],
         y_pred=output_df["predict"],
         quantile=False,

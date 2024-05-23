@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
-plt.subplots() #without this line will cause kernel crashed
+
+plt.subplots()  # without this line will cause kernel crashed: when matplotlib and torch import simultaneously
 import cartopy.crs as ccrs
 from cartopy.mpl import ticker
 import cartopy
@@ -173,3 +174,68 @@ class Increase_High_Data_Test:
         ax.set_yscale("log")
         fig.legend(loc="upper right")
         return fig, ax
+
+
+def plot_station_distribution(stations=None, title=None):
+    src_crs = ccrs.PlateCarree()
+    fig, ax_map = plt.subplots(subplot_kw={"projection": src_crs}, figsize=(7, 7))
+
+    ax_map.coastlines("10m")
+
+    ax_map.add_feature(
+        cartopy.feature.OCEAN, zorder=2, edgecolor="k"
+    )  # zorder越大的圖層 越上面
+
+    sta = ax_map.scatter(
+        stations["longitude"],
+        stations["latitude"],
+        edgecolors="gray",
+        color="red",
+        linewidth=0.5,
+        marker="^",
+        s=20,
+        zorder=3,
+        label="Station",
+    )
+    xmin = stations["longitude"].min() - 0.1
+    xmax = stations["longitude"].max() + 0.1
+    ymin = stations["latitude"].min() - 0.1
+    ymax = stations["latitude"].max() + 0.1
+    xticks = ticker.LongitudeLocator(nbins=5)._raw_ticks(xmin, xmax)
+    yticks = ticker.LatitudeLocator(nbins=5)._raw_ticks(ymin, ymax)
+    ax_map.set_xticks(xticks, crs=ccrs.PlateCarree())
+    ax_map.set_yticks(yticks, crs=ccrs.PlateCarree())
+
+    ax_map.xaxis.set_major_formatter(
+        ticker.LongitudeFormatter(zero_direction_label=True)
+    )
+    ax_map.yaxis.set_major_formatter(ticker.LatitudeFormatter())
+
+    ax_map.xaxis.set_ticks_position("both")
+    ax_map.yaxis.set_ticks_position("both")
+    ax_map.legend()
+    if title:
+        ax_map.set_title(title)
+    return fig, ax_map
+
+
+def plot_received_traces_station_map(
+    total_station_value_counts, title="Received traces map", output_path=None
+):
+    src_crs = ccrs.PlateCarree()
+    fig, ax_map = plt.subplots(subplot_kw={"projection": src_crs}, figsize=(7, 7))
+    ax_map.coastlines("10m")
+    ax_map.scatter(
+        total_station_value_counts["longitude"],
+        total_station_value_counts["latitude"],
+        edgecolors="k",
+        linewidth=1,
+        marker="o",
+        s=total_station_value_counts["counts"] * 1.5,
+        zorder=3,
+        alpha=0.5,
+    )
+    ax_map.set_title(f"{title}")
+    if output_path:
+        fig.savefig(f"{output_path}/{title}.png", dpi=300)
+    return fig, ax_map
