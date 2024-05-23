@@ -1027,7 +1027,7 @@ class Residual_Plotter:
                 s=10,
                 alpha=0.3,
                 c="r",
-                label="meinong eq",
+                label=f"eq_id: {single_case_check}",
             )
         residual_mean = np.round(
             (prediction_with_info["predict"] - prediction_with_info["answer"]).mean(), 3
@@ -1043,3 +1043,78 @@ class Residual_Plotter:
             f"Predicted residual in {test_year} \n mean: {residual_mean}, std: {residual_std}, wrong rate: {wrong_predict_rate}"
         )
         return fig, ax
+
+    def single_event_residual_map(prediction_with_info=None, eq_id=None, title=None):
+        earthquake = prediction_with_info.query(f"EQ_ID =={eq_id}")
+        residual = earthquake["predict"] - earthquake["answer"]
+        max_abs_difference = abs(residual).max()
+        src_crs = ccrs.PlateCarree()
+        fig, ax_map = plt.subplots(subplot_kw={"projection": src_crs}, figsize=(7, 7))
+        ax_map.coastlines("10m")
+        scatter = ax_map.scatter(
+            earthquake["longitude"],
+            earthquake["latitude"],
+            edgecolors="k",
+            linewidth=1,
+            marker="o",
+            s=15,
+            zorder=3,
+            c=residual,
+            cmap="seismic",
+            alpha=0.5,
+            vmin=-max_abs_difference,
+            vmax=max_abs_difference,
+        )
+        cbar = plt.colorbar(scatter)
+        cbar.set_label(r"predict-answer log(PGA ${m/s^2}$)")
+        if title:
+            ax_map.set_title(f"{title}")
+        return fig, ax_map
+
+    def events_station_map(grouby_sta=None, column=None, cmap=None, title=None):
+        max_abs_difference = abs(grouby_sta["predict_residual", "mean"]).max()
+        negative_max_difference = -max_abs_difference
+        src_crs = ccrs.PlateCarree()
+        fig, ax_map = plt.subplots(subplot_kw={"projection": src_crs}, figsize=(7, 7))
+        ax_map.coastlines("10m")
+        if column == "std":
+            max_abs_difference = None
+            negative_max_difference = None
+        scatter = ax_map.scatter(
+            grouby_sta["longitude", "first"],
+            grouby_sta["latitude", "first"],
+            edgecolors="k",
+            linewidth=1,
+            marker="o",
+            s=15,
+            zorder=3,
+            c=grouby_sta["predict_residual", f"{column}"],
+            cmap=cmap,
+            alpha=0.5,
+            vmin=negative_max_difference,
+            vmax=max_abs_difference,
+        )
+        xmin, xmax = ax_map.get_xlim()
+        ymin, ymax = ax_map.get_ylim()
+
+        xticks = [119.5, 120.5, 121.5, 122.5]
+        yticks = ticker.LatitudeLocator(nbins=5)._raw_ticks(ymin, ymax)
+        xticks_interval = 1.0
+        ax_map.set_xticks(xticks, crs=ccrs.PlateCarree())
+        ax_map.set_yticks(yticks, crs=ccrs.PlateCarree())
+
+        ax_map.xaxis.set_major_formatter(
+            ticker.LongitudeFormatter(zero_direction_label=True)
+        )
+        ax_map.yaxis.set_major_formatter(ticker.LatitudeFormatter())
+
+        ax_map.xaxis.set_ticks_position("both")
+        ax_map.yaxis.set_ticks_position("both")
+        cbar = plt.colorbar(scatter)
+        if column == "std":
+            cbar.set_label(r"standard deviation")
+        if column == "mean":
+            cbar.set_label(r"predict-observation log(PGA ${m/s^2}$)")
+        if title:
+            ax_map.set_title(f"{title}")
+        return fig, ax_map
