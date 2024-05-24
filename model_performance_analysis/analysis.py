@@ -15,6 +15,7 @@ from scipy.interpolate import griddata
 import os
 from scipy.stats import norm
 import bisect
+import pandas as pd
 
 
 class Precision_Recall_Factory:
@@ -1118,3 +1119,136 @@ class Residual_Plotter:
         if title:
             ax_map.set_title(f"{title}")
         return fig, ax_map
+
+
+class Rolling_Warning:
+    def __init__(self, label_type="pga"):
+        self.label_type = label_type
+        if self.label_type == "pga":
+            self.label_threshold = np.log10(0.25)
+            self.intensity = "IV"
+        if label_type == "pgv":
+            self.label_threshold = np.log10(0.15)
+            self.intensity = "V"
+
+    def calculate_warning_time_at_different_issue_timing(
+        self,
+        prediction_in_different_timing=None,
+        time_list=None,
+        event_filter=None,
+    ):
+        warning_df = pd.DataFrame()
+        warning_time_columns = []
+        for sec, events_prediction in zip(
+            time_list,
+            prediction_in_different_timing,
+        ):
+            big_magnitude_event = events_prediction.query(
+                event_filter
+            )  # or set magnitude>=5
+            true_warn_filter = (
+                big_magnitude_event["predict"] > self.label_threshold
+            ) & ((big_magnitude_event["answer"] > self.label_threshold))
+            warning_time = big_magnitude_event[true_warn_filter][
+                f"{self.label_type}_time_window"
+            ] / 200 - (sec + 5)
+            warning_time.name = f"{sec}_sec_{self.label_type}_time_window"
+            warning_time_columns.append(warning_time.name)
+            warning_df = pd.concat([warning_df, warning_time], axis=1)
+
+        # warning at different sec to get longest lead time and plot warning time vs epicentral distance
+        warning_df_with_station_info = pd.merge(
+            warning_df,
+            big_magnitude_event[
+                ["EQ_ID", "latitude", "longitude", "elevation", "epdis (km)"]
+            ],
+            how="left",
+            left_index=True,
+            right_index=True,
+        )
+
+        max_values = warning_df_with_station_info[warning_time_columns].max(axis=1)
+
+        max_column = warning_df_with_station_info[warning_time_columns].idxmax(axis=1)
+
+        warning_df_with_station_info["max_from_column"] = max_column
+        warning_df_with_station_info["max_warning_time"] = max_values
+
+        return warning_df_with_station_info
+
+    def plot_maximum_warning_time(
+        self, warning_df_with_station_info=None, time_list=None
+    ):
+        fig, ax = plt.subplots()
+        for filter_key, label in zip(
+            warning_df_with_station_info["max_from_column"].unique(), time_list
+        ):
+            ax.scatter(
+                warning_df_with_station_info[
+                    warning_df_with_station_info["max_from_column"] == filter_key
+                ]["epdis (km)"],
+                warning_df_with_station_info[
+                    warning_df_with_station_info["max_from_column"] == filter_key
+                ]["max_warning_time"],
+                label=label,
+                alpha=0.5,
+            )
+        ax.set_ylabel("Warning time")
+        ax.set_xlabel("epicentral distance (km)")
+        plt.legend()
+        return fig, ax
+
+    def calculate_statistical_value(self, warning_df_with_station_info, filter=None):
+        maximum_warning_time = warning_df_with_station_info["max_warning_time"]
+        maximum_warning_time = maximum_warning_time[maximum_warning_time > 0]
+        if filter:
+            maximum_warning_time = warning_df_with_station_info.query(filter)[
+                "max_warning_time"
+            ]
+
+        describe = maximum_warning_time.describe()
+        count = int(describe["count"])
+        mean = np.round(describe["mean"], 2)
+        std = np.round(describe["std"], 2)
+        median = np.round(describe["50%"], 2)
+        max = np.round(describe["max"], 2)
+
+        output = {
+            "count": count,
+            "mean": mean,
+            "std": std,
+            "median": median,
+            "max": max,
+        }
+
+        return output
+
+    def plot_maximum_warning_time_histogram(
+        self,
+        warning_df_with_station_info=None,
+        statistical_dict=None,
+        filter=None,
+        title=None,
+    ):
+        if filter:
+            warning_df_with_station_info = warning_df_with_station_info.query(filter)
+
+        maximum_warning_time = warning_df_with_station_info["max_warning_time"]
+        maximum_warning_time = maximum_warning_time[maximum_warning_time > 0]
+
+        fig, ax = plt.subplots(figsize=(7, 7))
+        ax.hist(maximum_warning_time, bins=25, edgecolor="k")
+        ax.text(
+            0.6,
+            0.775,
+            f"mean: {statistical_dict['mean']} s\nstd: {statistical_dict['std']} s\nmedian: {statistical_dict['median']} s\nmax: {statistical_dict['max']} s\nwarning stations: {statistical_dict['count']}",
+            transform=ax.transAxes,
+            fontsize=14,
+        )
+        ax.set_xlabel("Warning time (sec)", fontsize=15)
+        ax.set_ylabel("Number of stations", fontsize=15)
+        ax.xaxis.set_tick_params(labelsize=12)
+        ax.yaxis.set_tick_params(labelsize=12)
+        if title:
+            ax.set_title(title, fontsize=15)
+        return fig, ax
