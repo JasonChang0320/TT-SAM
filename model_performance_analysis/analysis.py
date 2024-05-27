@@ -840,6 +840,91 @@ class Warning_Time_Plotter:
         ax.set_ylabel("time (sec)")
         return fig, ax
 
+    def p_wave_pga_travel_time(
+        event_prediction=None, label_threshold=np.log10(0.25), title=None
+    ):  # np.log10(0.25)-> seismic intensity 4
+        fig, ax = plt.subplots(figsize=(14, 7))
+        ax.scatter(
+            event_prediction["epdis (km)"],
+            (event_prediction["p_picks"] / 200) - 5,
+            alpha=0.5,
+            edgecolors="grey",
+            label="P-pick",
+        )
+        ax.scatter(
+            event_prediction.query(
+                f"answer > {label_threshold} & predict > {label_threshold}"
+            )["epdis (km)"],
+            (
+                event_prediction.query(
+                    f"answer > {label_threshold} & predict > {label_threshold}"
+                )["pga_time_window"]
+                / 200
+            )
+            - 5,
+            c="r",
+            label="TP",
+            alpha=0.5,
+            edgecolors="grey",
+        )
+        ax.scatter(
+            event_prediction.query(
+                f"answer > {label_threshold} & predict < {label_threshold}"
+            )["epdis (km)"],
+            (
+                event_prediction.query(
+                    f"answer > {label_threshold} & predict < {label_threshold}"
+                )["pga_time_window"]
+                / 200
+            )
+            - 5,
+            c="purple",
+            label="FN",
+            alpha=0.5,
+            edgecolors="grey",
+        )
+        ax.scatter(
+            event_prediction.query(
+                f"answer < {label_threshold} & predict < {label_threshold}"
+            )["epdis (km)"],
+            (
+                event_prediction.query(
+                    f"answer < {label_threshold} & predict < {label_threshold}"
+                )["pga_time_window"]
+                / 200
+            )
+            - 5,
+            c="grey",
+            label="TN",
+            alpha=0.5,
+            edgecolors="grey",
+        )
+        ax.scatter(
+            event_prediction.query(
+                f"answer < {label_threshold} & predict > {label_threshold}"
+            )["epdis (km)"],
+            (
+                event_prediction.query(
+                    f"answer < {label_threshold} & predict > {label_threshold}"
+                )["pga_time_window"]
+                / 200
+            )
+            - 5,
+            c="green",
+            label="FP",
+            alpha=0.5,
+            edgecolors="grey",
+        )
+        ax.legend(fontsize=12)
+        ax.set_xlabel("epicentral distance (km)", fontsize=15)
+        ax.set_ylabel("time (sec)", fontsize=15)
+        if title:
+            ax.set_title(
+                title,
+                fontsize=20,
+            )
+        return fig, ax
+
 
 class Triggered_Map:
 
@@ -1252,3 +1337,104 @@ class Rolling_Warning:
         if title:
             ax.set_title(title, fontsize=15)
         return fig, ax
+
+    def plot_event_warning_time_with_distance_range(
+        self, event_info=None, distance_range=None, event_loc=None, title=None
+    ):
+        """
+        distance_range: 2 elements list, [close distance, far distance], unit: km
+        event_loc: 2 elements list, [longitude, latitude], unit: degree
+        """
+        target_data = event_info[
+            (event_info["epdis (km)"] >= distance_range[0])
+            & (event_info["epdis (km)"] <= distance_range[1])
+        ]
+        src_crs = ccrs.PlateCarree()
+        fig, ax_map = plt.subplots(subplot_kw={"projection": src_crs}, figsize=(7, 7))
+
+        ax_map.coastlines("10m")
+
+        numcols, numrows = 100, 200
+        xi = np.linspace(
+            min(target_data["longitude"]), max(target_data["longitude"]), numcols
+        )
+        yi = np.linspace(
+            min(target_data["latitude"]), max(target_data["latitude"]), numrows
+        )
+        xi, yi = np.meshgrid(xi, yi)
+
+        ax_map.add_feature(cartopy.feature.OCEAN, zorder=2, edgecolor="k")
+        event_lon = event_loc[0]
+        event_lat = event_loc[1]
+        ax_map.scatter(
+            event_lon,
+            event_lat,
+            color="red",
+            edgecolors="k",
+            linewidth=1,
+            marker="*",
+            s=500,
+            zorder=10,
+            label="Epicenter",
+        )
+        cvals = [
+            0,
+            target_data["max_warning_time"].mean(),
+            target_data["max_warning_time"].max(),
+        ]
+        norm = plt.Normalize(min(cvals), max(cvals))
+        colors = ["white", "orange", "red"]
+        tuples = list(zip(map(norm, cvals), colors))
+        cmap = matplotlib.colors.LinearSegmentedColormap.from_list("", tuples)
+
+        warn_sta = ax_map.scatter(
+            target_data["longitude"],
+            target_data["latitude"],
+            c=target_data["max_warning_time"],
+            norm=norm,
+            cmap=cmap,
+            edgecolors="k",
+            linewidth=1,
+            marker="o",
+            s=30,
+            zorder=3,
+            alpha=0.7,
+        )
+        gd = Geodesic()
+        geoms = []
+        close_radius = distance_range[0] * 1000
+        cp = gd.circle(lon=event_lon, lat=event_lat, radius=close_radius)
+        geoms.append(sgeom.Polygon(cp))
+
+        average_radius = (distance_range[0] + distance_range[1]) / 2 * 1000
+        cp = gd.circle(lon=event_lon, lat=event_lat, radius=average_radius)
+        geoms.append(sgeom.Polygon(cp))
+
+        far_radius = distance_range[1] * 1000
+        cp = gd.circle(lon=event_lon, lat=event_lat, radius=far_radius)
+        geoms.append(sgeom.Polygon(cp))
+
+        ax_map.add_geometries(
+            geoms,
+            crs=src_crs,
+            edgecolor="black",
+            facecolor="none",
+            alpha=0.2,
+            zorder=2.5,
+        )
+        xmin, xmax = ax_map.get_xlim()
+        ymin, ymax = ax_map.get_ylim()
+
+        if xmax - xmin > ymax - ymin:  # check if square
+            ymin = (ymax + ymin) / 2 - (xmax - xmin) / 2
+            ymax = (ymax + ymin) / 2 + (xmax - xmin) / 2
+        else:
+            xmin = (xmax + xmin) / 2 - (ymax - ymin) / 2
+            xmax = (xmax + xmin) / 2 + (ymax - ymin) / 2
+        ax_map.set_xlim(xmin, xmax)
+        ax_map.set_ylim(ymin, ymax)
+        cbar = plt.colorbar(warn_sta, extend="both")
+        cbar.set_label("Warning time (sec)")
+        if title:
+            ax_map.set_title(title)
+        return fig, ax_map
