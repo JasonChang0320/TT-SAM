@@ -157,6 +157,8 @@ time_eqid_dict = {
 time_eqid_df = pd.DataFrame(time_eqid_dict)
 final_traces = pd.merge(time_eqid_df, final_table, on="event_time", how="right")
 final_catalog = pd.merge(time_eqid_df, catalog, on="event_time", how="left")
+# final_traces.to_csv("cwa_test_eew_events.csv",index=False)
+# final_traces.to_csv("cwa_test_eew_traces.csv",index=False)
 # =========calculate residual mean and std
 final_traces["PGA"] = np.sqrt(
     final_traces["PGA(V)"] ** 2

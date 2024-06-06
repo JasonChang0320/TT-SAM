@@ -92,6 +92,7 @@ for mask_after_sec in [3, 5, 7, 10]:
         mask_after_sec,
         output_path=None,
     )
+    # precision_curve_ax.set_xlim(0,90) #figure in thesis
     precision_curve_fig, precision_curve_ax = Precision_Recall_Factory.plot_score_curve(
         performance_score,
         precision_curve_fig,
@@ -101,6 +102,8 @@ for mask_after_sec in [3, 5, 7, 10]:
         mask_after_sec,
         output_path=None,
     )
+    # precision_curve_ax.set_xlim(0,90) #figure in thesis
+    # precision_curve_fig.savefig(f"../paper image/precision_curve.png", dpi=300)
     recall_curve_fig, recall_curve_ax = Precision_Recall_Factory.plot_score_curve(
         performance_score,
         recall_curve_fig,
@@ -110,6 +113,8 @@ for mask_after_sec in [3, 5, 7, 10]:
         mask_after_sec,
         output_path=None,
     )
+    # recall_curve_ax.set_xlim(0,90) #figure in thesis
+    # recall_curve_fig.savefig(f"../paper image/recall_curve.png", dpi=300)
 
     predict_table = pd.DataFrame(performance_score)
     # predict_table.to_csv(
