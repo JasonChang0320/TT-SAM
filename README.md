@@ -1,4 +1,5 @@
-# Taiwan Transformer Shaking Alert Model (TT-SAM)
+# Taiwan Transformer Shaking Alert Model (TT-SAM) 
+[![License](https://img.shields.io/badge/License-GPLv3-orange)](https://www.gnu.org/licenses/gpl-3.0.html)
 
 This study has referenced the Transformer Earthquake Alerting Model (TEAM), a deep learning earthquake early warning (EEW) framework. We optimized the model using seismic data from Taiwan to develop the Taiwan Transformer Shaking Alert Model (TT-SAM), and it could rapidly calculate the seismic intensity to provide longer warning time.
 
