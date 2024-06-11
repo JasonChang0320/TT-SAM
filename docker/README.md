@@ -1,6 +1,6 @@
-# Dockerfile for a CUDA-enabled Python environment
+# Dockerfile for TT-SAM environment (CPU version)
 
-This Dockerfile is based on the `nvidia/cuda:11.7.1-cudnn8-runtime-ubuntu22.04` image, and installs several Linux packages and Python packages to create a Python environment for CUDA-enabled applications.
+This Dockerfile is based on the `python:3.8.12` image, and installs several Linux packages and Python packages to create a Python environment for CUDA-enabled applications.
 
 ## Usage
 To build the Docker image, run:
@@ -11,7 +11,7 @@ where `<image-name>` is the desired name for the Docker image.
 
 To run a container based on this image, use:
 ```
-docker run --gpus all -it <image-name> /bin/bash
+docker run  -it <image-name> bash
 ```
 
 This will launch an interactive shell in the container, with access to the installed packages and Python environment.
@@ -35,5 +35,3 @@ And the following Python packages, installed via pip:
 
 ## Notes
 - The `ENV DEBIAN_FRONTEND noninteractive` line is included to prevent any interactive prompts during the package installation process.
-- The `apt-mark hold libcudnn* cuda*` line prevents these packages from being automatically updated during the `apt-get upgrade` step. This is recommended to prevent potential conflicts with the CUDA installation.
-- The `--no-binary shapely` option is used to ensure that the `shapely` package is built from source, as pre-built packages may not be compatible with the CUDA environment.
