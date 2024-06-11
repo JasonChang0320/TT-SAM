@@ -33,9 +33,6 @@ data_preprocess/tracer_demo/2023_output
 data_preprocess/tracer_demo/model_image
 data_preprocess/tracer_demo/create_input_file/*
 !data_preprocess/tracer_demo/create_input_file/*.py
-
-
-
 !data_preprocess/0918_M6.8_1319_1330/
 data_preprocess/0918_M6.8_1319_1330/cut trace
 data_preprocess/0918_M6.8_1319_1330/*.csv
@@ -46,15 +43,20 @@ feature_map_correlation/__pycache__
 model_performance_analysis/__pycache__
 
 #0403 Hualien_earthquake
-/data_preprocess/0403_Hualien_Earthquake/0403waveform_image
-/data_preprocess/0403_Hualien_Earthquake/113019_TSMIP_SAC
-/data_preprocess/0403_Hualien_Earthquake/model_input
-/data_preprocess/0403_Hualien_Earthquake/intensity_map_plot_without_disconnected_data
-/data_preprocess/0403_Hualien_Earthquake/intensity_map_with_disconnected_data
-/data_preprocess/0403_Hualien_Earthquake/*.zip
-/data_preprocess/0403_Hualien_Earthquake/*.csv
-/data_preprocess/0403_Hualien_Earthquake/model_input_waveform_image
-/data_preprocess/0403_Hualien_Earthquake/0403asc_by_Joey
-/data_preprocess/0403_Hualien_Earthquake/triggered_station
+/model_performance_analysis/0403_Hualien_Earthquake/0403waveform_image
+/model_performance_analysis/0403_Hualien_Earthquake/113019_TSMIP_SAC
+/model_performance_analysis/0403_Hualien_Earthquake/model_input
+/model_performance_analysis/0403_Hualien_Earthquake/true_intensity_map_with_broken_data
+/model_performance_analysis/0403_Hualien_Earthquake/true_intensity_map_without_broken_data
+/model_performance_analysis/0403_Hualien_Earthquake/include_broken_data_prediction
+/model_performance_analysis/0403_Hualien_Earthquake/no_include_broken_data_prediction
+/model_performance_analysis/0403_Hualien_Earthquake/underestimation_problem
+/model_performance_analysis/0403_Hualien_Earthquake/model_input_waveform_image
+/model_performance_analysis/0403_Hualien_Earthquake/0403asc_by_Joey
+/model_performance_analysis/0403_Hualien_Earthquake/triggered_station
+/model_performance_analysis/0403_Hualien_Earthquake/*.zip
+/model_performance_analysis/0403_Hualien_Earthquake/*.csv
+/model_performance_analysis/0403_Hualien_Earthquake/*.7z
+
 #CWA eew
 /CWA_EEW_report
