@@ -15,6 +15,5 @@ torchaudio==0.10.2+cu113
 torchsampler==0.1.2
 torchsummary==1.5.1
 torchvision==0.11.3+cu113
-tornado==6.1
 tqdm==4.63.0
 ViTables==3.0.2
