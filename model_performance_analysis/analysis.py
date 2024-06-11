@@ -16,6 +16,8 @@ import os
 from scipy.stats import norm
 import bisect
 import pandas as pd
+import matplotlib.patheffects as path_effects
+import math
 
 
 class Precision_Recall_Factory:
@@ -31,8 +33,9 @@ class Precision_Recall_Factory:
 
     def plot_intensity_confusion_matrix(
         intensity_confusion_matrix,
-        intensity_score,
-        mask_after_sec,
+        intensity_score=None,
+        mask_after_sec=None,
+        title=None,
         output_path=None,
     ):
         intensity = ["0", "1", "2", "3", "4", "5-", "5+", "6-", "6+", "7"]
@@ -56,9 +59,12 @@ class Precision_Recall_Factory:
             )
         ax.set_xlabel("Predicted intensity", fontsize=18)
         ax.set_ylabel("Actual intensity", fontsize=18)
-        ax.set_title(
-            f"{mask_after_sec} sec intensity confusion matrix, intensity score: {np.round(intensity_score,3)}"
-        )
+        if intensity_score:
+            ax.set_title(
+                f"{mask_after_sec} sec intensity confusion matrix, intensity score: {np.round(intensity_score,3)}"
+            )
+        if title:
+            ax.set_title(title)
         if output_path:
             fig.savefig(
                 f"{output_path}/{mask_after_sec} sec intensity confusion matrix.png",
@@ -134,6 +140,7 @@ class Intensity_Plotter:
         label_type="pga",
         true_label=None,
         pred_label=None,
+        min_epdis=None,  # unit: km
         center=None,
         pad=None,
         sec=None,
@@ -219,12 +226,15 @@ class Intensity_Plotter:
         )
         gd = Geodesic()
         geoms = []
-        P_radius = (
-            trace_info["epdis (km)"][
-                trace_info["p_picks"] == trace_info["p_picks"].min()
-            ].values[0]
-            + sec * Pwave_vel
-        ) * 1000
+        if min_epdis:
+            P_radius = (min_epdis + sec * Pwave_vel) * 1000
+        else:
+            P_radius = (
+                trace_info["epdis (km)"][
+                    trace_info["p_picks"] == trace_info["p_picks"].min()
+                ].values[0]
+                + sec * Pwave_vel
+            ) * 1000
         cp = gd.circle(lon=event_lon, lat=event_lat, radius=P_radius)
         geoms.append(sgeom.Polygon(cp))
 
@@ -544,6 +554,109 @@ class Intensity_Plotter:
         plt.tight_layout()
         if output_path:
             fig.savefig(f"{output_path}/eqid_{eqid}_CWA_eew_report.pdf", dpi=300)
+        return fig, ax_map
+
+    def plot_intensity_scatter_map(
+        event=None, event_lon=None, event_lat=None, mag=None, pga_column=None
+    ):
+        src_crs = ccrs.PlateCarree()
+        fig, ax_map = plt.subplots(subplot_kw={"projection": src_crs}, figsize=(7, 7))
+        cmap = mpl.colors.ListedColormap(
+            [
+                "#ffffff",  # 0
+                "#33FFDD",  # 1
+                "#34ff32",  # 2
+                "#fefd32",  # 3
+                "#fe8532",  # 4
+                "#fd5233",  # 5-
+                "#c43f3b",  # 5+
+                "#9d4646",  # 6-
+                "#9a4c86",  # 6+
+                "#b51fea",  # 7
+            ]
+        )
+
+        # 标签和颜色的对应关系
+        labels = ["0", "1", "2", "3", "4", "5-", "5+", "6-", "6+", "7"]
+        label_to_index = {label: i for i, label in enumerate(labels)}
+
+        ax_map.coastlines("10m")
+
+        ax_map.add_feature(
+            cartopy.feature.OCEAN, zorder=2, edgecolor="k"
+        )  # zorder越大的圖層 越上面
+
+        sta = ax_map.scatter(
+            event["sta_lon_pre"],
+            event["sta_lat_pre"],
+            c="white",
+            linewidth=1,
+            marker="o",
+            s=20,
+            zorder=3,
+            alpha=0,
+            label="True Intensity",
+        )
+
+        bins = [
+            1e-5,
+            0.008,
+            0.025,
+            0.080,
+            0.250,
+            0.80,
+            1.4,
+            2.5,
+            4.4,
+            8.0,
+            float("inf"),
+        ]
+        labels = ["0", "1", "2", "3", "4", "5-", "5+", "6-", "6+", "7"]
+        event["intensity"] = pd.cut(
+            event[f"{pga_column}"] / 100, bins=bins, labels=labels, right=False
+        )
+        event = event.reset_index(drop=True)
+        ax_map.scatter(
+            event_lon,
+            event_lat,
+            color="red",
+            edgecolors="k",
+            linewidth=1,
+            marker="*",
+            s=125,
+            zorder=10,
+        )
+        ax_map.text(
+            event_lon + 0.15,
+            event_lat,
+            f"M{mag}",
+            va="center",
+            zorder=11,
+        )
+        for i in range(len(event)):
+
+            text = ax_map.text(
+                event["sta_lon_pre"][i],
+                event["sta_lat_pre"][i],
+                event["intensity"][i],
+                color=cmap(label_to_index[event["intensity"][i]]),
+                # linewidth=1,
+                fontsize=12.5,
+                zorder=15,
+            )
+            text.set_path_effects(
+                [
+                    path_effects.Stroke(linewidth=0.75, foreground="black"),
+                    path_effects.Normal(),
+                ]
+            )
+        ax_map.set_ylim(
+            event["sta_lat_pre"].min() - 0.25, event["sta_lat_pre"].max() + 0.25
+        )
+        ax_map.set_xlim(
+            event["sta_lon_pre"].min() - 0.25, event["sta_lon_pre"].max() + 0.25
+        )
+        ax_map.set_title(f"Observed intensity")
         return fig, ax_map
 
 
@@ -930,6 +1043,7 @@ class Triggered_Map:
 
     def plot_station_map(
         trace_info=None,
+        min_epdis=None,
         center=None,
         pad=None,
         sec=None,
@@ -973,12 +1087,18 @@ class Triggered_Map:
         )
         gd = Geodesic()
         geoms = []
-        P_radius = (
-            trace_info["epdis (km)"][
-                trace_info["p_picks"] == trace_info["p_picks"].min()
-            ].values[0]
+        if min_epdis:
+            P_radius = (
+            min_epdis
             + sec * Pwave_vel
-        ) * 1000
+            ) * 1000
+        else:
+            P_radius = (
+                trace_info["epdis (km)"][
+                    trace_info["p_picks"] == trace_info["p_picks"].min()
+                ].values[0]
+                + sec * Pwave_vel
+            ) * 1000
         cp = gd.circle(lon=event_lon, lat=event_lat, radius=P_radius)
         geoms.append(sgeom.Polygon(cp))
 
@@ -1438,3 +1558,76 @@ class Rolling_Warning:
         if title:
             ax_map.set_title(title)
         return fig, ax_map
+
+
+class Consider_Angle:
+    def calculate_angle(x1, y1, x2, y2):
+        # 計算兩點之間的斜率
+        delta_x = x2 - x1
+        delta_y = y2 - y1
+        slope = delta_y / delta_x
+
+        # 使用反正切函數計算角度（以弧度為單位）
+        angle_radians = math.atan(slope)
+
+        # 將弧度轉換為角度
+        angle_degrees = math.degrees(angle_radians)
+
+        # 將角度調整為0到360度的範圍
+        if delta_x < 0:
+            angle_degrees += 180
+        elif delta_x >= 0 and delta_y < 0:
+            angle_degrees += 360
+
+        return angle_degrees % 360
+    def plot_pga_attenuation(prediction=None):
+        fig,ax=plt.subplots()
+        scatter=ax.scatter(prediction["dist"],prediction["PGA"],c=prediction["angle"],alpha=0.5)
+        ax.set_ylabel(r"PGA log(${m/s^2}$)")
+        ax.set_xlabel("hypocentral distance (km)")
+        cbar = plt.colorbar(scatter)
+        cbar.set_label("angle (degree)")
+        return fig,ax
+    def angle_map(stations=None,init_sta_lon=None,init_sta_lat=None,event_lon=None,event_lat=None):
+        src_crs = ccrs.PlateCarree()
+        fig, ax_map = plt.subplots(subplot_kw={"projection": src_crs}, figsize=(7, 7))
+        ax_map.coastlines("10m")
+        scatter = ax_map.scatter(
+            stations["longitude"],
+            stations["latitude"],
+            edgecolors="k",
+            linewidth=1,
+            marker="o",
+            s=15,
+            zorder=3,
+            c=stations["angle"],
+            alpha=0.5,
+        )
+
+        ax_map.scatter(
+            init_sta_lon,
+            init_sta_lat,
+            edgecolors="k",
+            linewidth=1,
+            marker="^",
+            s=150,
+            c="k",
+            zorder=4,
+        )
+
+        ax_map.scatter(
+            event_lon,
+            event_lat,
+            color="red",
+            edgecolors="k",
+            linewidth=1,
+            marker="*",
+            s=500,
+            zorder=10,
+            label="Epicenter",
+        )
+
+        cbar = plt.colorbar(scatter)
+
+        cbar.set_label(r"angle (degree)")
+        return fig,ax_map
