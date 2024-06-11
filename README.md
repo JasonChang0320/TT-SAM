@@ -25,7 +25,7 @@ Background color represents model predicted intensity.
 ### 2016 Taitung Offshore Earthquake
 ![image](images/Taitung_offshore_event.gif)
 
-## Reference
+## References
 Münchmeyer, J., Bindi, D., Leser, U., & Tilmann, F. (2021). The transformer earthquake
 alerting model: A new versatile approach to earthquake early warning. Geophysical Journal
 International, 225(1), 646-656.
